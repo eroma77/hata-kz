@@ -1,6 +1,6 @@
 // Hata.kz Application Controller
 
-// Global active state
+// Global state
 let currentCategory = 'need_room'; // 'need_room' or 'have_room'
 let selectedFilterDistricts = new Set();
 let selectedFormDistricts = new Set();
@@ -10,12 +10,19 @@ let activePromoDays = 3;
 
 // Initialize app on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
+    // Populate dropdowns from config
+    populateCitiesDropdowns();
+
     // Initialize UI triggers
+    initTheme();
     initCategoryTabs();
     initFilters();
     initAuth();
     initForm();
     initAdmin();
+    
+    // Print Local IP & Mobile Access guide to console for the user
+    printMobileAccessGuide();
     
     // Initial Render
     updateDistrictsFilter();
@@ -35,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     window.addEventListener('hata_config_changed', () => {
         updateAdminInputs();
+        populateCitiesDropdowns();
         renderListings();
     });
 });
@@ -49,6 +57,70 @@ window.closeModal = function(id) {
     const el = document.getElementById(id);
     if (el) el.classList.remove('open');
 };
+
+// --- THEME MANAGEMENT ---
+function initTheme() {
+    const themeBtn = document.getElementById('themeToggleBtn');
+    if (!themeBtn) return;
+    
+    // Default to light theme
+    const savedTheme = localStorage.getItem('hata_theme') || 'light';
+    setTheme(savedTheme);
+    
+    themeBtn.addEventListener('click', () => {
+        const isLight = document.body.classList.contains('light-theme');
+        const nextTheme = isLight ? 'dark' : 'light';
+        setTheme(nextTheme);
+    });
+}
+
+function setTheme(theme) {
+    const themeBtn = document.getElementById('themeToggleBtn');
+    if (theme === 'dark') {
+        document.body.classList.remove('light-theme');
+        document.body.classList.add('dark-theme');
+        if (themeBtn) themeBtn.textContent = '☀️ Светлая';
+    } else {
+        document.body.classList.remove('dark-theme');
+        document.body.classList.add('light-theme');
+        if (themeBtn) themeBtn.textContent = '🌙 Темная';
+    }
+    localStorage.setItem('hata_theme', theme);
+}
+
+// --- POPULATE CITIES DYNAMICALLY ---
+function populateCitiesDropdowns() {
+    const filterCity = document.getElementById('filterCity');
+    const formCity = document.getElementById('formCity');
+    
+    if (filterCity) {
+        const currentVal = filterCity.value;
+        filterCity.innerHTML = '';
+        Object.keys(HataConfig.cities).forEach(key => {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = HataConfig.cities[key].name;
+            filterCity.appendChild(opt);
+        });
+        if (currentVal && HataConfig.cities[currentVal]) {
+            filterCity.value = currentVal;
+        }
+    }
+    
+    if (formCity) {
+        const currentVal = formCity.value;
+        formCity.innerHTML = '';
+        Object.keys(HataConfig.cities).forEach(key => {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = HataConfig.cities[key].name;
+            formCity.appendChild(opt);
+        });
+        if (currentVal && HataConfig.cities[currentVal]) {
+            formCity.value = currentVal;
+        }
+    }
+}
 
 // --- AUTHENTICATION MOCK ---
 function initAuth() {
@@ -73,13 +145,12 @@ function updateAuthHeader() {
                 <span class="username">${user.name}</span>
                 <span style="font-size: 0.75rem; margin-left: 0.25rem;">▼</span>
             </div>
-            <!-- Simple context menu popup -->
-            <div id="userMenuDropdown" style="display:none; position:absolute; right:1.5rem; top:5rem; background:#2d3042; border:1px solid var(--border-color); border-radius:var(--radius-md); overflow:hidden; box-shadow:var(--shadow-md); z-index:10;">
+            <!-- Context menu popup -->
+            <div id="userMenuDropdown" style="display:none; position:absolute; right:1.5rem; top:5rem; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:var(--radius-md); overflow:hidden; box-shadow:var(--shadow-md); z-index:10;">
                 <button class="btn" style="background:transparent; color:var(--text-primary); text-align:left; border-radius:0; padding:0.75rem 1.5rem; font-size:0.85rem; width:100%;" onclick="logoutUser()">Выйти</button>
             </div>
         `;
         
-        // Add dropdown toggle event
         const btn = document.getElementById('userMenuBtn');
         const dropdown = document.getElementById('userMenuDropdown');
         if (btn && dropdown) {
@@ -92,7 +163,6 @@ function updateAuthHeader() {
             });
         }
         
-        // Make Profile Panel visible
         document.getElementById('userProfilePanel').style.display = 'block';
     } else {
         container.innerHTML = `<button class="btn btn-primary" id="loginBtn" onclick="openModal('loginModal')">Войти</button>`;
@@ -136,7 +206,6 @@ function switchCategoryTab(cat) {
     document.getElementById('tabNeedRoom').classList.toggle('active', cat === 'need_room');
     document.getElementById('tabHaveRoom').classList.toggle('active', cat === 'have_room');
     
-    // Reset filters
     selectedFilterDistricts.clear();
     updateDistrictsFilter();
     renderListings();
@@ -145,6 +214,7 @@ function switchCategoryTab(cat) {
 // --- FILTERS LOGIC ---
 function initFilters() {
     const filterCity = document.getElementById('filterCity');
+    const filterBudgetMin = document.getElementById('filterBudgetMin');
     const filterBudgetMax = document.getElementById('filterBudgetMax');
     const filterGender = document.getElementById('filterGender');
     const filterRooms = document.getElementById('filterRooms');
@@ -157,7 +227,23 @@ function initFilters() {
         });
     }
     
-    if (filterBudgetMax) filterBudgetMax.addEventListener('change', renderListings);
+    // Listeners for budget min/max and price validations
+    const triggerFilterRender = () => {
+        // Enforce validations in filter budget bounds if filled
+        const minVal = parseInt(filterBudgetMin.value);
+        const maxVal = parseInt(filterBudgetMax.value);
+        
+        if (minVal && minVal < 10000) filterBudgetMin.value = 10000;
+        if (minVal && minVal > 1000000) filterBudgetMin.value = 1000000;
+        
+        if (maxVal && maxVal < 10000) filterBudgetMax.value = 10000;
+        if (maxVal && maxVal > 1000000) filterBudgetMax.value = 1000000;
+        
+        renderListings();
+    };
+
+    if (filterBudgetMin) filterBudgetMin.addEventListener('change', triggerFilterRender);
+    if (filterBudgetMax) filterBudgetMax.addEventListener('change', triggerFilterRender);
     if (filterGender) filterGender.addEventListener('change', renderListings);
     if (filterRooms) filterRooms.addEventListener('change', renderListings);
 }
@@ -165,12 +251,22 @@ function initFilters() {
 function updateDistrictsFilter() {
     const cityKey = document.getElementById('filterCity').value;
     const container = document.getElementById('filterDistrictsContainer');
+    const wrapper = document.getElementById('filterDistrictsWrapper');
     
-    if (!container) return;
+    if (!container || !wrapper) return;
     container.innerHTML = '';
     
     const cityInfo = HataConfig.cities[cityKey];
-    if (cityInfo && cityInfo.districts) {
+    
+    // Check if city has districts configured
+    if (!cityInfo || !cityInfo.hasDistricts) {
+        wrapper.style.display = 'none'; // Hide districts selector completely
+        return;
+    }
+    
+    wrapper.style.display = 'block';
+    
+    if (cityInfo.districts) {
         cityInfo.districts.forEach(district => {
             const pill = document.createElement('div');
             pill.className = 'district-pill';
@@ -198,35 +294,28 @@ function renderListings() {
     const grid = document.getElementById('listingsGrid');
     if (!grid) return;
     
-    // Load config dynamic prices
-    const config = loadConfig();
-    
     const activeListings = db.getListings();
     
     // Read Filter States
     const cityFilter = document.getElementById('filterCity').value;
-    const budgetMaxVal = document.getElementById('filterBudgetMax').value;
+    const budgetMinVal = parseInt(document.getElementById('filterBudgetMin').value) || 0;
+    const budgetMaxVal = parseInt(document.getElementById('filterBudgetMax').value) || 1000000;
     const genderFilter = document.getElementById('filterGender').value;
     const roomFilter = document.getElementById('filterRooms').value;
     
-    // Filter the listings
+    const cityInfo = HataConfig.cities[cityFilter];
+    const cityHasDistricts = cityInfo ? cityInfo.hasDistricts : false;
+
+    // Filter
     let filtered = activeListings.filter(item => {
-        // Category Filter
         if (item.category !== currentCategory) return false;
-        
-        // City Filter
         if (item.city !== cityFilter) return false;
         
-        // Budget Filter
-        if (budgetMaxVal !== 'any') {
-            const max = parseInt(budgetMaxVal);
-            if (item.budget > max) return false;
-        }
+        // Range budget filter
+        if (item.budget < budgetMinVal || item.budget > budgetMaxVal) return false;
         
-        // Gender Filter
         if (genderFilter !== 'any' && item.gender !== genderFilter) return false;
         
-        // Room Filter
         if (roomFilter !== 'any') {
             if (roomFilter === '4plus') {
                 if (item.roomCount < 4) return false;
@@ -235,8 +324,8 @@ function renderListings() {
             }
         }
         
-        // Districts Filter (Multiple selection - AND matching: match if listing districts overlaps selected districts)
-        if (selectedFilterDistricts.size > 0) {
+        // Districts Filter: skip or disable check if Pavlodar / city has no districts
+        if (cityHasDistricts && selectedFilterDistricts.size > 0) {
             const hasMatch = item.districts.some(dist => selectedFilterDistricts.has(dist));
             if (!hasMatch) return false;
         }
@@ -244,7 +333,7 @@ function renderListings() {
         return true;
     });
     
-    // Sorting: Promoted first (boostExpiredAt in future), then by creation date descending
+    // Sorting: Promoted first, then by date descending
     const now = new Date().getTime();
     filtered.sort((a, b) => {
         const aBoosted = a.boostExpiredAt && new Date(a.boostExpiredAt).getTime() > now;
@@ -256,30 +345,26 @@ function renderListings() {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
     
-    // Render count
     document.getElementById('listingsCount').textContent = filtered.length;
     
-    // Empty state
     if (filtered.length === 0) {
         grid.innerHTML = `
             <div class="empty-feed form-full">
                 <div class="empty-icon">🔍</div>
                 <div class="empty-title">Ничего не найдено</div>
-                <p>Попробуйте сбросить фильтры или выбрать другие районы.</p>
+                <p>Попробуйте сбросить фильтры бюджета или изменить город.</p>
             </div>
         `;
         return;
     }
     
-    // Grid rendering
     grid.innerHTML = filtered.map(item => {
         const isBoosted = item.boostExpiredAt && new Date(item.boostExpiredAt).getTime() > now;
         const formattedDate = formatListingDate(item.createdAt);
         
-        // Photo carousel UI
+        // Photo carousel
         let carouselHTML = '';
         if (item.photos && item.photos.length > 0) {
-            // Render first image only for P2P feed card (simple display)
             carouselHTML = `
                 <div class="card-gallery">
                     <img class="card-img" src="${item.photos[0]}" alt="Квартира">
@@ -299,7 +384,6 @@ function renderListings() {
             `;
         }
         
-        // Tag badges
         let tagOccupation = '';
         if (item.occupation === 'student') tagOccupation = 'Учеба';
         else if (item.occupation === 'student_work') tagOccupation = 'Учеба + Работа';
@@ -308,12 +392,15 @@ function renderListings() {
 
         const genderLabel = item.gender === 'male' ? 'Парень' : 'Девушка';
         
-        // 2GIS block
+        // Districts display string (handled safely if empty)
+        const distStr = item.districts && item.districts.length > 0
+            ? `<span class="card-tag accent">${item.districts.join(', ')}</span>`
+            : '';
+
         const mapButton = (item.gisLink && item.category === 'have_room') 
             ? `<a href="${item.gisLink}" target="_blank" class="btn btn-secondary">🗺️ В 2GIS</a>`
             : '';
             
-        // WhatsApp link generator (starting with wa.me/7...)
         const cleanPhone = item.whatsapp.startsWith('8') ? '7' + item.whatsapp.substring(1) : item.whatsapp;
         const waLink = `https://wa.me/7${cleanPhone.replace(/^7/, '')}?text=Привет!%20Я%20насчет%20объявления%20на%20Hata.kz`;
 
@@ -336,8 +423,9 @@ function renderListings() {
                         <span class="card-tag accent">${genderLabel}, ${item.age} лет</span>
                         <span class="card-tag">${tagOccupation}</span>
                         <span class="card-tag">${item.roomCount} комн.</span>
-                        ${item.hasDeposit ? '<span class="card-tag accent">С депозитом</span>' : ''}
+                        ${item.hasDeposit ? '<span class="card-tag accent">Депозит</span>' : ''}
                         ${item.hasContract ? '<span class="card-tag">Договор</span>' : ''}
+                        ${distStr}
                     </div>
                     
                     <p class="card-desc">${item.description}</p>
@@ -356,19 +444,12 @@ function formatListingDate(isoString) {
     const date = new Date(isoString);
     const now = new Date();
     
-    // Check if today
-    if (date.toDateString() === now.toDateString()) {
-        return 'Сегодня';
-    }
+    if (date.toDateString() === now.toDateString()) return 'Сегодня';
     
-    // Check if yesterday
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
-    if (date.toDateString() === yesterday.toDateString()) {
-        return 'Вчера';
-    }
+    if (date.toDateString() === yesterday.toDateString()) return 'Вчера';
     
-    // Otherwise regular date
     return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
 
@@ -407,7 +488,6 @@ function renderUserProfile() {
         const catLabel = item.category === 'need_room' ? 'Ищу сожителя' : 'Сдаю комнату';
         const dateStr = new Date(item.createdAt).toLocaleDateString('ru-RU');
 
-        // Toggle buttons based on status
         let actionButtons = '';
         if (item.status === 'active') {
             actionButtons += `
@@ -440,34 +520,6 @@ function renderUserProfile() {
     }).join('');
 }
 
-window.archiveListing = function(id) {
-    if (confirm("Вы уверены, что хотите убрать объявление в архив? Оно перестанет отображаться в общем поиске.")) {
-        try {
-            db.archiveListing(id);
-        } catch (e) {
-            alert(e.message);
-        }
-    }
-};
-
-window.reactivateListing = function(id) {
-    try {
-        db.reactivateListing(id);
-    } catch (e) {
-        alert(e.message);
-    }
-};
-
-window.deleteListing = function(id) {
-    if (confirm("Удалить объявление навсегда? Это действие необратимо.")) {
-        try {
-            db.deleteListing(id);
-        } catch (e) {
-            alert(e.message);
-        }
-    }
-};
-
 // --- FORM SUBMIT & EDIT ---
 function initForm() {
     const createListingBtn = document.getElementById('createListingBtn');
@@ -475,7 +527,6 @@ function initForm() {
         createListingBtn.addEventListener('click', () => openListingForm());
     }
     
-    // Add WhatsApp auto-fill trigger on focus
     const formWhatsapp = document.getElementById('formWhatsapp');
     if (formWhatsapp) {
         formWhatsapp.addEventListener('focus', () => {
@@ -484,14 +535,12 @@ function initForm() {
                 const suggestions = db.getAutoFillSuggestions(user.id);
                 if (suggestions.whatsapp && !formWhatsapp.value) {
                     formWhatsapp.value = suggestions.whatsapp;
-                    // Trigger input event to clear validation errors
                     formWhatsapp.dispatchEvent(new Event('input'));
                 }
             }
         });
     }
 
-    // Add Address auto-fill trigger on focus
     const formAddress = document.getElementById('formAddress');
     if (formAddress) {
         formAddress.addEventListener('focus', () => {
@@ -521,11 +570,9 @@ function openListingForm(id = null) {
     const title = document.getElementById('listingModalTitle');
     const submitBtn = document.getElementById('formSubmitBtn');
     
-    // Update config listing price label
     const config = loadConfig();
     submitBtn.textContent = `Опубликовать (${config.pricing.postingFee} ₸)`;
     
-    // Toggle fields based on active tab category
     const formCat = document.getElementById('formCategory');
     formCat.value = currentCategory;
     
@@ -544,7 +591,6 @@ function openListingForm(id = null) {
     }
 
     if (id) {
-        // EDIT MODE
         title.textContent = 'Редактировать объявление';
         submitBtn.textContent = 'Сохранить изменения';
         
@@ -554,7 +600,6 @@ function openListingForm(id = null) {
             document.getElementById('formListingId').value = item.id;
             document.getElementById('formCategory').value = item.category;
             
-            // Adjust toggled display block based on item category
             if (item.category === 'have_room') {
                 detailsBlock.style.display = 'grid';
                 document.getElementById('formBudgetLabel').textContent = 'Стоимость аренды (₸/мес) *';
@@ -585,15 +630,12 @@ function openListingForm(id = null) {
             document.getElementById('formRoommateCount').value = item.roommateCount;
             document.getElementById('formDescription').value = item.description;
             
-            // Load districts
             selectedFormDistricts = new Set(item.districts);
         }
     } else {
-        // CREATE MODE
         title.textContent = 'Создать объявление';
         document.getElementById('formListingId').value = '';
         
-        // Auto-fill defaults if database contains them
         const suggestions = db.getAutoFillSuggestions(user.id);
         if (suggestions.gender) document.getElementById('formGender').value = suggestions.gender;
         if (suggestions.occupation) document.getElementById('formOccupation').value = suggestions.occupation;
@@ -607,12 +649,22 @@ function openListingForm(id = null) {
 window.updateFormDistricts = function() {
     const cityKey = document.getElementById('formCity').value;
     const container = document.getElementById('formDistrictsContainer');
+    const wrapper = document.getElementById('formDistrictsWrapper');
     
-    if (!container) return;
+    if (!container || !wrapper) return;
     container.innerHTML = '';
     
     const cityInfo = HataConfig.cities[cityKey];
-    if (cityInfo && cityInfo.districts) {
+    
+    // Omit district selection completely if Pavlovdar / city has no districts
+    if (!cityInfo || !cityInfo.hasDistricts) {
+        wrapper.style.display = 'none';
+        return;
+    }
+    
+    wrapper.style.display = 'block';
+    
+    if (cityInfo.districts) {
         cityInfo.districts.forEach(district => {
             const pill = document.createElement('div');
             pill.className = 'district-pill';
@@ -634,13 +686,11 @@ window.updateFormDistricts = function() {
     }
 };
 
-// Photos uploading logic mockup
 function initFormPhotoPreviews() {
     const container = document.getElementById('photoPreviews');
     if (!container) return;
     container.innerHTML = '';
     
-    // Render existing photos
     formImagesList.forEach((src, idx) => {
         const box = document.createElement('div');
         box.className = 'img-preview-box';
@@ -651,7 +701,6 @@ function initFormPhotoPreviews() {
         container.appendChild(box);
     });
     
-    // Add "+" empty boxes up to 6
     if (formImagesList.length < 6) {
         const addBox = document.createElement('div');
         addBox.className = 'img-preview-box';
@@ -667,7 +716,6 @@ window.removeFormImage = function(idx) {
 };
 
 function addFormImageMock() {
-    // Generate simple mock apartment image from Unsplash for prototyping
     const mockImages = [
         "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=600&h=400&fit=crop",
         "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&h=400&fit=crop",
@@ -677,7 +725,6 @@ function addFormImageMock() {
         "https://images.unsplash.com/photo-1583608205776-bfd35f0d9f83?w=600&h=400&fit=crop"
     ];
     
-    // Grab next available or random
     const src = mockImages[formImagesList.length % mockImages.length];
     formImagesList.push(src);
     initFormPhotoPreviews();
@@ -690,6 +737,13 @@ window.handleListingSubmit = function(event) {
     const category = document.getElementById('formCategory').value;
     
     const budget = parseInt(document.getElementById('formBudget').value);
+    
+    // Strict price bounds validation [10 000 - 1 000 000] ₸
+    if (budget < 10000 || budget > 1000000) {
+        alert("Недопустимый бюджет! Допустимый диапазон: от 10 000 до 1 000 000 тенге.");
+        return;
+    }
+    
     const age = parseInt(document.getElementById('formAge').value);
     const city = document.getElementById('formCity').value;
     const gender = document.getElementById('formGender').value;
@@ -699,13 +753,17 @@ window.handleListingSubmit = function(event) {
     const roommateCount = document.getElementById('formRoommateCount').value === 'any' ? 'any' : parseInt(document.getElementById('formRoommateCount').value);
     const description = document.getElementById('formDescription').value;
     
-    // District validation
-    if (selectedFormDistricts.size === 0) {
-        alert("Выберите хотя бы один район!");
-        return;
-    }
+    const cityInfo = HataConfig.cities[city];
+    let districts = [];
     
-    const districts = Array.from(selectedFormDistricts);
+    // Validate districts selection strictly if city has districts
+    if (cityInfo && cityInfo.hasDistricts) {
+        if (selectedFormDistricts.size === 0) {
+            alert("Пожалуйста, выберите хотя бы один район/микрорайон!");
+            return;
+        }
+        districts = Array.from(selectedFormDistricts);
+    }
     
     const payload = {
         category,
@@ -721,7 +779,6 @@ window.handleListingSubmit = function(event) {
         description
     };
     
-    // Validation spec for room owners
     if (category === 'have_room') {
         if (formImagesList.length < 3) {
             alert("Пожалуйста, прикрепите как минимум 3 фотографии квартиры!");
@@ -734,7 +791,7 @@ window.handleListingSubmit = function(event) {
         const hasContract = document.getElementById('formContract').value === 'true';
         
         if (!address || !gisLink) {
-            alert("Поля 'Адрес' и 'Ссылка на 2GIS' обязательны для заполнения!");
+            alert("Поля 'Адрес' и 'Ссылка на 2GIS' обязательны!");
             return;
         }
         
@@ -770,11 +827,8 @@ window.editListing = function(id) {
 // --- PROMOTION BOOST MODAL ---
 window.openPromoModal = function(id) {
     activePromoListingId = id;
-    
-    // Set default selected options
     selectPromoOption('opt3Days', 3);
     
-    // Load current config prices
     const config = loadConfig();
     document.getElementById('priceLabel3Days').textContent = `${config.pricing.promo3Days} ₸`;
     document.getElementById('priceLabelWeek').textContent = `${config.pricing.promoWeek} ₸`;
@@ -785,12 +839,9 @@ window.openPromoModal = function(id) {
 
 window.selectPromoOption = function(optId, days) {
     activePromoDays = days;
-    
-    // Toggle visual selection style
     document.querySelectorAll('.promo-option').forEach(el => el.classList.remove('selected'));
     document.getElementById(optId).classList.add('selected');
     
-    // Update price label below
     const config = loadConfig();
     let price = config.pricing.promo3Days;
     if (days === 7) price = config.pricing.promoWeek;
@@ -801,7 +852,6 @@ window.selectPromoOption = function(optId, days) {
 
 window.processMockPayment = function() {
     if (!activePromoListingId) return;
-    
     try {
         db.boostListing(activePromoListingId, activePromoDays);
         closeModal('promoModal');
@@ -818,7 +868,7 @@ function initAdmin() {
         adminPanelBtn.addEventListener('click', () => {
             const user = db.getCurrentUser();
             if (!user || !user.isAdmin) {
-                alert("Доступ ограничен. Пожалуйста, войдите в аккаунт Администратора.");
+                alert("Доступ ограничен. Войдите под аккаунтом Администратора.");
                 openModal('loginModal');
                 return;
             }
@@ -868,7 +918,9 @@ function renderAdminModerationList() {
     
     container.innerHTML = all.map(item => {
         const catLabel = item.category === 'need_room' ? 'Ищу сожителя' : 'Сдаю комнату';
-        const districtsStr = item.districts.slice(0, 2).join(', ') + (item.districts.length > 2 ? '...' : '');
+        const districtsStr = item.districts && item.districts.length > 0 
+            ? item.districts.slice(0, 2).join(', ') + (item.districts.length > 2 ? '...' : '') 
+            : 'Все районы';
         return `
             <tr style="border-bottom:1px solid var(--border-color); color:var(--text-secondary);">
                 <td style="padding: 0.75rem;">${catLabel}</td>
@@ -881,4 +933,18 @@ function renderAdminModerationList() {
             </tr>
         `;
     }).join('');
+}
+
+// --- MOBILE ACCESS TUNNEL GUIDE ---
+function printMobileAccessGuide() {
+    console.log("%c📱 HATA.KZ: ИНСТРУКЦИЯ ДЛЯ ТЕСТИРОВАНИЯ С ТЕЛЕФОНА", "color:#7e52ff; font-weight:bold; font-size:14px;");
+    console.log("Вы можете протестировать этот адаптивный интерфейс на мобильном с помощью одного из способов:");
+    console.log("%c1. Локальная Wi-Fi сеть:", "color:#b8ff00; font-weight:bold;");
+    console.log("   Узнайте свой локальный IP компьютера (команда ipconfig в терминале, например 192.168.1.55).");
+    console.log("   Запустите локальный http-сервер в этой папке (например: npx http-server ./ -p 8080).");
+    console.log("   Откройте на мобильном телефоне в браузере: http://192.168.1.55:8080");
+    console.log("%c2. Временный туннель (свободный доступ из интернета):", "color:#b8ff00; font-weight:bold;");
+    console.log("   Запустите сервер: npx http-server ./ -p 8080");
+    console.log("   В другом окне запустите туннель: npx localtunnel --port 8080");
+    console.log("   Или через ngrok: ngrok http 8080");
 }

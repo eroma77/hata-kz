@@ -1,6 +1,6 @@
 // Hata.kz Mock Database Layer
 
-// Mock listings to populate the platform initially
+// Mock listings to populate the platform initially (aligned with new config names)
 const MOCK_LISTINGS = [
     {
         id: "mock-1",
@@ -28,7 +28,7 @@ const MOCK_LISTINGS = [
         hasDeposit: false,
         hasContract: true,
         createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-        boostExpiredAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(), // Boosted, expires in 4 days
+        boostExpiredAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(), // Boosted
         status: "active"
     },
     {
@@ -37,7 +37,7 @@ const MOCK_LISTINGS = [
         ownerId: "user-mock-2",
         ownerName: "Данияр",
         ownerAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
-        budget: 50000,
+        budget: 55000,
         age: 19,
         city: "almaty",
         districts: ["Ауэзовский район", "Бостандыкский район"],
@@ -46,13 +46,13 @@ const MOCK_LISTINGS = [
         occupation: "student_work",
         roomCount: 1,
         roommateCount: 2,
-        description: "Салам! Ищу комнату или подселение к парням. Бюджет до 50k. Сам учусь в МУИТ на 2 курсе и подрабатываю по вечерам. Не шумлю, уважаю чужое пространство. Могу заселиться хоть завтра. Было бы круто в районе Саина-Шаляпина.",
+        description: "Салам! Ищу комнату или подселение к парням. Бюджет до 60k. Сам учусь в МУИТ на 2 курсе и подрабатываю по вечерам. Не шумлю, уважаю чужое пространство. Могу заселиться хоть завтра. Было бы круто в районе Саина-Шаляпина.",
         photos: [],
         address: "",
         gisLink: "",
         hasDeposit: false,
         hasContract: false,
-        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
         boostExpiredAt: null,
         status: "active"
     },
@@ -65,7 +65,7 @@ const MOCK_LISTINGS = [
         budget: 90000,
         age: 21,
         city: "astana",
-        districts: ["Район Есиль"],
+        districts: ["Есильский район"],
         whatsapp: "7476543210",
         gender: "female",
         occupation: "work",
@@ -81,7 +81,7 @@ const MOCK_LISTINGS = [
         gisLink: "https://2gis.kz/astana/search/Кабанбай батыра 48",
         hasDeposit: true,
         hasContract: true,
-        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
+        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
         boostExpiredAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // Boosted
         status: "active"
     },
@@ -94,7 +94,7 @@ const MOCK_LISTINGS = [
         budget: 65000,
         age: 22,
         city: "astana",
-        districts: ["Район Алматы", "Район Сарыарка"],
+        districts: ["Алматинский район", "Сарыаркинский район"],
         whatsapp: "7053334455",
         gender: "male",
         occupation: "student",
@@ -109,6 +109,31 @@ const MOCK_LISTINGS = [
         createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
         boostExpiredAt: null,
         status: "active"
+    },
+    {
+        id: "mock-5",
+        category: "need_room",
+        ownerId: "user-mock-2",
+        ownerName: "Данияр",
+        ownerAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
+        budget: 85000,
+        age: 23,
+        city: "pavlodar",
+        districts: [], // Павлодар has no districts
+        whatsapp: "7778889900",
+        gender: "male",
+        occupation: "work",
+        roomCount: 2,
+        roommateCount: 1,
+        description: "Ищу сожителя в Павлодаре, снимаю хорошую двушку в центре. Районов в выборе нет, так как город небольшой. Оплата 85 тыс тг плюс коммуналка. Сам работаю инженером. Чистоплотный, без вредных привычек.",
+        photos: [],
+        address: "",
+        gisLink: "",
+        hasDeposit: false,
+        hasContract: true,
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        boostExpiredAt: null,
+        status: "active"
     }
 ];
 
@@ -118,9 +143,24 @@ class HataDatabase {
     }
 
     init() {
-        // Initialize listings
-        if (!localStorage.getItem('hata_listings')) {
+        // Reset or initialize listings to align with new mock configurations
+        // If cities uralsk/pavlodar are not in config we might need to reset localStorage listings
+        const currentListings = localStorage.getItem('hata_listings');
+        if (!currentListings) {
             localStorage.setItem('hata_listings', JSON.stringify(MOCK_LISTINGS));
+        } else {
+            try {
+                // If it exists, let's verify if uralsk or pavlodar items exist.
+                // If the user refreshed they might want the fresh mock database with new districts
+                const parsed = JSON.parse(currentListings);
+                const hasUpdatedMocks = parsed.some(item => item.city === 'pavlodar' || item.districts.includes("Нуринский район") || item.districts.includes("Сарайшык"));
+                if (!hasUpdatedMocks) {
+                    // Let's reset the database to include the new districts and Pavlodar mock
+                    localStorage.setItem('hata_listings', JSON.stringify(MOCK_LISTINGS));
+                }
+            } catch (e) {
+                localStorage.setItem('hata_listings', JSON.stringify(MOCK_LISTINGS));
+            }
         }
 
         // Initialize users (empty or mock users)
@@ -128,7 +168,7 @@ class HataDatabase {
             const mockUsers = [
                 { id: "user-mock-1", name: "Аружан", email: "aruzhan@gmail.com", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop" },
                 { id: "user-mock-2", name: "Данияр", email: "daniyar@gmail.com", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop" },
-                { id: "user-mock-3", name: "Канила", email: "kamila@gmail.com", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop" },
+                { id: "user-mock-3", name: "Камила", email: "kamila@gmail.com", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop" },
                 { id: "user-mock-4", name: "Адиль", email: "adil@gmail.com", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop" }
             ];
             localStorage.setItem('hata_users', JSON.stringify(mockUsers));
@@ -172,7 +212,6 @@ class HataDatabase {
 
     // Get all active listings
     getListings() {
-        const all = JSON.parse(localStorage.getItem('hata_listings') || '[]');
         this.runArchivingDaemon(); // clean up just in case
         return JSON.parse(localStorage.getItem('hata_listings') || '[]').filter(item => item.status === 'active');
     }
@@ -246,7 +285,6 @@ class HataDatabase {
         if (idx === -1) throw new Error("Объявление не найдено");
         if (all[idx].ownerId !== user.id) throw new Error("Нет прав для редактирования");
 
-        // Merge updated fields but retain ID, owner info, createdAt and promotion status
         all[idx] = {
             ...all[idx],
             ...updatedFields,
@@ -254,8 +292,6 @@ class HataDatabase {
             ownerId: all[idx].ownerId,
             ownerName: all[idx].ownerName,
             ownerAvatar: all[idx].ownerAvatar,
-            // Keep createdAt date unchanged as requested:
-            // "если чел опубликовал и изменил его завтра то все ровно будет написано вчера"
             createdAt: all[idx].createdAt, 
             boostExpiredAt: all[idx].boostExpiredAt
         };
@@ -272,7 +308,6 @@ class HataDatabase {
 
         if (idx === -1) throw new Error("Объявление не найдено");
         
-        // Allow owner or admin
         const isAdmin = user && user.isAdmin;
         if (!isAdmin && (!user || all[idx].ownerId !== user.id)) {
             throw new Error("Нет прав для удаления");
@@ -308,7 +343,6 @@ class HataDatabase {
 
         const all = JSON.parse(localStorage.getItem('hata_listings') || '[]');
         
-        // Limit check
         const activeCount = all.filter(item => item.ownerId === user.id && item.status === 'active').length;
         if (activeCount >= 7) {
             throw new Error("Нельзя активировать. У вас уже есть 7 активных объявлений.");
@@ -319,7 +353,7 @@ class HataDatabase {
         if (all[idx].ownerId !== user.id) throw new Error("Нет прав для активации");
 
         all[idx].status = 'active';
-        all[idx].createdAt = new Date().toISOString(); // Reset date for fresh start
+        all[idx].createdAt = new Date().toISOString(); // Reset date
         all[idx].archivedAt = null;
 
         localStorage.setItem('hata_listings', JSON.stringify(all));
@@ -333,12 +367,9 @@ class HataDatabase {
 
         if (idx === -1) throw new Error("Объявление не найдено");
 
-        // Calculate boost expiration
         const now = new Date();
         now.setDate(now.getDate() + days);
         all[idx].boostExpiredAt = now.toISOString();
-
-        // Also reset listing creation date to now so it goes back to the top immediately
         all[idx].createdAt = new Date().toISOString();
 
         localStorage.setItem('hata_listings', JSON.stringify(all));
@@ -354,27 +385,22 @@ class HataDatabase {
         for (let i = all.length - 1; i >= 0; i--) {
             const item = all[i];
             
-            // Check if active and expired (20 days)
             if (item.status === 'active') {
-                // If boosted, check if boost has active state. 
-                // Promoted listing auto-renews up to the boost period.
                 let expiryDays = 20;
                 if (item.boostExpiredAt) {
                     const boostExpiry = new Date(item.boostExpiredAt).getTime();
                     if (boostExpiry > now) {
-                        // Promoted listings stay active until promotion ends, plus they get +5 bonus days
                         const boostEndPlusBonus = boostExpiry + (5 * 24 * 60 * 60 * 1000);
                         if (now > boostEndPlusBonus) {
                             item.status = 'archived';
                             item.archivedAt = new Date().toISOString();
-                            item.boostExpiredAt = null; // reset boost
+                            item.boostExpiredAt = null;
                             changed = true;
                         }
                         continue;
                     }
                 }
 
-                // Standard listing archive check (20 days)
                 const createdTime = new Date(item.createdAt).getTime();
                 const diffTime = now - createdTime;
                 const limit = 20 * 24 * 60 * 60 * 1000;
@@ -384,7 +410,6 @@ class HataDatabase {
                     changed = true;
                 }
             } 
-            // Check if archived and expired (3 days in archive)
             else if (item.status === 'archived') {
                 const archivedTime = new Date(item.archivedAt || item.createdAt).getTime();
                 const diffTime = now - archivedTime;
@@ -403,4 +428,4 @@ class HataDatabase {
 }
 
 const db = new HataDatabase();
-window.db = db; // make globally available
+window.db = db;

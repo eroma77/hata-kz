@@ -10,6 +10,7 @@ const DEFAULT_CONFIG = {
     cities: {
         almaty: {
             name: "Алматы",
+            hasDistricts: true,
             districts: [
                 "Алатауский район",
                 "Алмалинский район",
@@ -23,31 +24,77 @@ const DEFAULT_CONFIG = {
         },
         astana: {
             name: "Астана",
+            hasDistricts: true,
             districts: [
-                "Район Алматы",
-                "Район Байконур",
-                "Район Есиль",
-                "Район Нура",
-                "Район Сарыарка"
+                "Алматинский район",
+                "Байконурский район",
+                "Есильский район",
+                "Нуринский район",
+                "Сарыаркинский район",
+                "Сарайшык"
             ]
         },
         shymkent: {
             name: "Шымкент",
+            hasDistricts: true,
             districts: [
                 "Абайский район",
                 "Аль-Фарабийский район",
-                "Енбекшинский район",
                 "Каратауский район",
+                "Енбекшинский район",
                 "Туранский район"
             ]
         },
         karaganda: {
             name: "Караганда",
+            hasDistricts: true,
             districts: [
                 "Район имени Казыбек би",
-                "Район имени Алихана Бокейханова"
+                "Район Алихана Бокейханова"
             ]
-        }
+        },
+        aktobe: {
+            name: "Актобе",
+            hasDistricts: true,
+            districts: [
+                "Район Алматы",
+                "Район Астана"
+            ]
+        },
+        uralsk: {
+            name: "Уральск",
+            hasDistricts: true,
+            districts: [
+                "мкр 4",
+                "мкр Азаулы",
+                "мкр Айгуль",
+                "мкр Астана",
+                "мкр Жана Орда",
+                "мкр Женис",
+                "mкр Жулдыз",
+                "мкр Кадыра Мырза-Али",
+                "мкр Кунаева",
+                "мкр Мясокомбинат",
+                "мкр Омега",
+                "мкр Северо-Восток",
+                "мкр Старый Аэропорт",
+                "мкр Строитель",
+                "мкр Школьник",
+                "мкр. Зачаганск пгт"
+            ]
+        },
+        pavlodar: { name: "Павлодар", hasDistricts: false, districts: [] },
+        taraz: { name: "Тараз", hasDistricts: false, districts: [] },
+        semey: { name: "Семей", hasDistricts: false, districts: [] },
+        atyrau: { name: "Атырау", hasDistricts: false, districts: [] },
+        aktau: { name: "Актау", hasDistricts: false, districts: [] },
+        kyzylorda: { name: "Кызылорда", hasDistricts: false, districts: [] },
+        kostanay: { name: "Костанай", hasDistricts: false, districts: [] },
+        petropavlovsk: { name: "Петропавловск", hasDistricts: false, districts: [] },
+        kokshetau: { name: "Кокшетау", hasDistricts: false, districts: [] },
+        taldykorgan: { name: "Талдыкорган", hasDistricts: false, districts: [] },
+        turkestan: { name: "Туркестан", hasDistricts: false, districts: [] },
+        zhezkazgan: { name: "Жезказган", hasDistricts: false, districts: [] }
     }
 };
 
@@ -59,7 +106,13 @@ function loadConfig() {
         return DEFAULT_CONFIG;
     }
     try {
-        return JSON.parse(savedConfig);
+        const parsed = JSON.parse(savedConfig);
+        // Clean up or merge in case config keys have changed
+        if (!parsed.cities || !parsed.cities.uralsk || !parsed.cities.pavlodar) {
+            localStorage.setItem('hata_config', JSON.stringify(DEFAULT_CONFIG));
+            return DEFAULT_CONFIG;
+        }
+        return parsed;
     } catch (e) {
         console.error("Error parsing hata_config, resetting to default:", e);
         localStorage.setItem('hata_config', JSON.stringify(DEFAULT_CONFIG));

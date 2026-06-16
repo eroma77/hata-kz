@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hata.kz | Поиск сожителей и жилья для студентов</title>
-    <meta name="description" content="Hata.kz — P2P платформа для совместной аренды квартир и поиска сожителей среди студентов в Казахстане. Без риелторов, бесплатно и удобно.">
+    <title>Hata.kz | Поиск сожителей и жилья для студентов в Казахстане</title>
+    <meta name="description" content="Hata.kz — современная минималистичная P2P платформа для поиска сожителей и жилья среди студентов в Казахстане. Напрямую, бесплатно и эффективно.">
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <!-- Radial ambient glows -->
+<body class="light-theme">
+    <!-- Background glows (active in dark mode / subtle in light) -->
     <div class="glow-spot glow-spot-1"></div>
     <div class="glow-spot glow-spot-2"></div>
     <div class="glow-spot glow-spot-3"></div>
@@ -20,8 +20,11 @@
                 <span>🏠</span> Hata<span>.kz</span>
             </a>
             <div class="nav-actions">
-                <!-- Admin shortcut (only visible or enabled for quick testing) -->
-                <button class="btn btn-secondary" id="adminPanelBtn" style="font-size: 0.85rem; padding: 0.5rem 1rem;">👑 Админка</button>
+                <!-- Theme Switcher -->
+                <button class="btn btn-secondary" id="themeToggleBtn" style="font-size: 0.85rem; padding: 0.5rem 1rem;">🌙 Темная</button>
+                
+                <!-- Admin shortcut -->
+                <button class="btn btn-secondary" id="adminPanelBtn" style="font-size: 0.85rem; padding: 0.5rem 1rem;">👑 Панель</button>
                 
                 <!-- Auth status container -->
                 <div id="authContainer">
@@ -30,7 +33,7 @@
             </div>
         </header>
 
-        <!-- Category Toggle -->
+        <!-- Category Toggle (Мне нужна комната / Сдаю комнату) -->
         <div class="category-toggle">
             <div class="toggle-option active" id="tabNeedRoom" data-category="need_room">Мне нужна комната</div>
             <div class="toggle-option" id="tabHaveRoom" data-category="have_room">Сдаю комнату / Подселение</div>
@@ -39,28 +42,21 @@
         <!-- Filters Section -->
         <section class="filter-card">
             <div class="filter-grid">
-                <!-- City Selector -->
+                <!-- City Selector (loaded dynamically in JS) -->
                 <div class="filter-group">
                     <label for="filterCity">Город</label>
                     <select id="filterCity" class="form-control">
-                        <option value="almaty">Алматы</option>
-                        <option value="astana">Астана</option>
-                        <option value="shymkent">Шымкент</option>
-                        <option value="karaganda">Караганда</option>
+                        <!-- Loaded dynamically via config.js -->
                     </select>
                 </div>
 
-                <!-- Budget Filter -->
+                <!-- Budget Range (From / To) -->
                 <div class="filter-group">
-                    <label for="filterBudgetMax">Бюджет до (₸)</label>
-                    <select id="filterBudgetMax" class="form-control">
-                        <option value="any">Любой</option>
-                        <option value="40000">до 40 000 ₸</option>
-                        <option value="60000">до 60 000 ₸</option>
-                        <option value="80000">до 80 000 ₸</option>
-                        <option value="100000">до 100 000 ₸</option>
-                        <option value="150000">до 150 000 ₸</option>
-                    </select>
+                    <label>Бюджет (₸)</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="number" id="filterBudgetMin" class="form-control" placeholder="От 10 000" min="10000" max="1000000">
+                        <input type="number" id="filterBudgetMax" class="form-control" placeholder="До 1 000 000" min="10000" max="1000000">
+                    </div>
                 </div>
 
                 <!-- Gender Filter -->
@@ -87,8 +83,8 @@
             </div>
 
             <!-- Districts Multi-select -->
-            <div class="filter-group">
-                <label style="margin-bottom: 0.5rem; display: block;">Выберите районы (можно несколько)</label>
+            <div class="filter-group" id="filterDistrictsWrapper">
+                <label style="margin-bottom: 0.5rem; display: block;" id="filterDistrictsLabel">Выберите районы (можно несколько) *</label>
                 <div id="filterDistrictsContainer" class="district-selector">
                     <!-- Loaded dynamically via js -->
                 </div>
@@ -98,7 +94,7 @@
         <!-- User Profile listings panel (Hidden when not logged in) -->
         <section class="profile-panel" id="userProfilePanel" style="display: none;">
             <div class="profile-header">
-                <h3>🙋‍♂️ Ваши объявления (Личный кабинет)</h3>
+                <h3>🙋‍♂️ Ваши объявления (Кабинет)</h3>
                 <button class="btn btn-lime" id="createListingBtn">+ Создать объявление</button>
             </div>
             <div class="user-listings-list" id="userListingsContainer">
@@ -128,7 +124,7 @@
             </div>
             <div class="modal-body">
                 <div class="google-auth-box">
-                    <p class="text-secondary" style="font-size: 0.9rem;">Выберите демо-аккаунт Google для быстрого входа без SMS-кодов:</p>
+                    <p class="text-secondary" style="font-size: 0.9rem;">Выберите демо-аккаунт Google для быстрого входа:</p>
                     <button class="google-btn" onclick="mockGoogleLogin('user-mock-1')">
                         <img class="user-avatar" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop" alt="">
                         <span>Аружан (Студент)</span>
@@ -142,7 +138,7 @@
                         <span>Камила (Выпускница)</span>
                     </button>
                     <button class="google-btn" onclick="mockGoogleLogin('admin-user')">
-                        <span class="user-avatar" style="display:flex; align-items:center; justify-content:center; background:#7e52ff; font-weight:bold;">A</span>
+                        <span class="user-avatar" style="display:flex; align-items:center; justify-content:center; background:#7e52ff; font-weight:bold; color: white;">A</span>
                         <span>Администратор Hata</span>
                     </button>
                 </div>
@@ -166,7 +162,7 @@
                         <!-- Budget -->
                         <div class="filter-group">
                             <label for="formBudget" id="formBudgetLabel">Бюджет (₸/мес) *</label>
-                            <input type="number" id="formBudget" class="form-control" placeholder="Например: 60000" required>
+                            <input type="number" id="formBudget" class="form-control" placeholder="От 10 000 до 1 000 000" min="10000" max="1000000" required>
                         </div>
                         
                         <!-- Age -->
@@ -175,14 +171,11 @@
                             <input type="number" id="formAge" class="form-control" placeholder="Возраст" min="16" max="99" required>
                         </div>
 
-                        <!-- City -->
+                        <!-- City (Loaded dynamically in JS) -->
                         <div class="filter-group">
                             <label for="formCity">Город *</label>
                             <select id="formCity" class="form-control" onchange="updateFormDistricts()">
-                                <option value="almaty">Алматы</option>
-                                <option value="astana">Астана</option>
-                                <option value="shymkent">Шымкент</option>
-                                <option value="karaganda">Караганда</option>
+                                <!-- Loaded dynamically via config.js -->
                             </select>
                         </div>
 
@@ -213,7 +206,7 @@
                                 <span style="position:absolute; left:12px; top:10px; font-weight:700; color:var(--text-secondary);">+7</span>
                                 <input type="tel" id="formWhatsapp" class="form-control" style="padding-left:36px;" placeholder="7771234567" pattern="[0-9]{10}" title="Введите 10 цифр номера начиная с 7" required>
                             </div>
-                            <span style="font-size:0.75rem; color:var(--text-muted);">Без скобок и дефисов. Предложения автозаполнения выходят при фокусе.</span>
+                            <span style="font-size:0.75rem; color:var(--text-muted);">Без скобок и дефисов. Пример: 7771234567.</span>
                         </div>
 
                         <!-- Room Count -->
@@ -241,7 +234,7 @@
                             </select>
                         </div>
 
-                        <!-- Have Room Specific Section (Hidden on need_room) -->
+                        <!-- Have Room Specific Section -->
                         <div class="form-full form-grid" id="haveRoomDetails" style="display:none; grid-template-columns: 1fr 1fr; margin-bottom: 0; padding: 0;">
                             <!-- Address -->
                             <div class="filter-group">
@@ -285,8 +278,8 @@
                         </div>
 
                         <!-- Districts Multiple Tag Selection -->
-                        <div class="filter-group form-full">
-                            <label>Районы жилья (Выберите один или несколько) *</label>
+                        <div class="filter-group form-full" id="formDistrictsWrapper">
+                            <label id="formDistrictsLabel">Районы/Микрорайоны жилья (Выберите один или несколько) *</label>
                             <div id="formDistrictsContainer" class="district-selector" style="max-height: 150px;">
                                 <!-- districts tags list loaded dynamically -->
                             </div>
@@ -352,7 +345,7 @@
                     <!-- Quick mockup QR code using styles -->
                     <div style="width:120px; height:120px; margin:0 auto 1rem; background:white; padding:10px; display:flex; flex-wrap:wrap; border-radius:var(--radius-sm);">
                         <!-- Fake QR look -->
-                        <div style="width:100%; height:100%; border:6px solid #f14635; display:flex; justify-content:center; align-items:center; font-weight:800; font-size:12px; color:#f14635;">Kaspi QR</div>
+                        <div style="width:100%; height:100%; border:6px solid #f14635; display:flex; justify-content:center; align-items:center; font-weight:800; font-size:12px; color:#f14635; background: white;">Kaspi QR</div>
                     </div>
                     <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:1rem;">
                         Откройте Kaspi.kz -> Сканировать QR код на экране для перевода <strong style="color:var(--accent-lime);" id="paySumLabel">190 ₸</strong>

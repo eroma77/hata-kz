@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hata.kz | Аренда и покупка недвижимости в Казахстане</title>
+    <meta name="description" content="Hata.kz — современный сервис для поиска, аренды и покупки квартир, домов и коммерческой недвижимости в Казахстане. Найти жилье просто.">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background glows -->
+    <div class="glow-bg"></div>
+    <div class="glow-bg-2"></div>
+
+    <!-- Header Navigation -->
+    <header>
+        <a href="#" class="logo-container" id="logoLink">
+            <span class="logo-icon">🏠</span>
+            <span class="logo-text">Hata<span>.kz</span></span>
+        </a>
+        <nav>
+            <ul>
+                <li><a href="#" class="active" id="navRent">Аренда</a></li>
+                <li><a href="#" id="navBuy">Покупка</a></li>
+                <li><a href="#" id="navNew">Новостройки</a></li>
+                <li><a href="#" id="navCommercial">Коммерческая</a></li>
+            </ul>
+        </nav>
+        <div class="header-actions">
+            <a href="#" class="btn btn-secondary" id="btnLogin">Войти</a>
+            <a href="#" class="btn btn-primary" id="btnPost">Разместить объявление</a>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <main>
+        <section class="hero">
+            <div class="hero-badge">
+                <span>✨</span> Новый способ найти жилье в Казахстане
+            </div>
+            <h1>Найдите свой идеальный <span>дом</span></h1>
+            <p>Тысячи проверенных объявлений об аренде и продаже квартир, домов и офисов во всех городах Казахстана.</p>
+
+            <!-- Search Form / Filters -->
+            <div class="search-container">
+                <div class="search-field">
+                    <label for="citySelect">Город</label>
+                    <select id="citySelect">
+                        <option value="almaty">Алматы</option>
+                        <option value="astana">Астана</option>
+                        <option value="shymkent">Шымкент</option>
+                        <option value="karaganda">Караганда</option>
+                        <option value="aktobe">Актобе</option>
+                    </select>
+                </div>
+                <div class="search-field">
+                    <label for="typeSelect">Тип жилья</label>
+                    <select id="typeSelect">
+                        <option value="flat">Квартира</option>
+                        <option value="house">Дом / Коттедж</option>
+                        <option value="office">Офис / Коммерция</option>
+                        <option value="room">Комната</option>
+                    </select>
+                </div>
+                <div class="search-field">
+                    <label for="priceInput">Бюджет (₸)</label>
+                    <select id="priceInput">
+                        <option value="any">Любой</option>
+                        <option value="100k">До 100 000 ₸ / мес</option>
+                        <option value="200k">До 200 000 ₸ / мес</option>
+                        <option value="500k">До 500 000 ₸ / мес</option>
+                        <option value="500kplus">Более 500 000 ₸ / мес</option>
+                    </select>
+                </div>
+                <button class="search-btn" id="searchBtn">
+                    <span>🔍</span> Найти
+                </button>
+            </div>
+        </section>
+
+        <!-- Categories Section -->
+        <section class="categories">
+            <div class="section-title">
+                <h2>Быстрый поиск по категориям</h2>
+                <p>Выберите интересующий тип недвижимости для просмотра активных объявлений</p>
+            </div>
+            <div class="category-grid">
+                <a href="#" class="category-card" id="catFlats">
+                    <span class="category-icon">🏢</span>
+                    <h3>Квартиры</h3>
+                    <p>Более 12,400 вариантов</p>
+                </a>
+                <a href="#" class="category-card" id="catHouses">
+                    <span class="category-icon">🏡</span>
+                    <h3>Дома и коттеджи</h3>
+                    <p>Более 3,200 вариантов</p>
+                </a>
+                <a href="#" class="category-card" id="catOffices">
+                    <span class="category-icon">💼</span>
+                    <h3>Офисы и бизнес</h3>
+                    <p>Более 1,800 вариантов</p>
+                </a>
+                <a href="#" class="category-card" id="catDaily">
+                    <span class="category-icon">🔑</span>
+                    <h3>Посуточно</h3>
+                    <p>Более 4,500 вариантов</p>
+                </a>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-text">
+                &copy; 2026 Hata.kz. Все права защищены. Разработано с заботой о пользователях.
+            </div>
+            <div class="socials">
+                <a href="#" id="socialTg" aria-label="Telegram">Telegram</a>
+                <a href="#" id="socialInst" aria-label="Instagram">Instagram</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="index.js"></script>
+</body>
+</html>

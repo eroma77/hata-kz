@@ -5,10 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hata.kz | Поиск сожителей и жилья для студентов в Казахстане</title>
     <meta name="description" content="Hata.kz — современная минималистичная P2P платформа для поиска сожителей и жилья среди студентов в Казахстане. Напрямую, бесплатно и эффективно.">
+    <!-- Lucide Icons and Supabase CDNs -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="light-theme">
-    <!-- Background glows (active in dark mode / subtle in light) -->
+    <!-- Background glows -->
     <div class="glow-spot glow-spot-1"></div>
     <div class="glow-spot glow-spot-2"></div>
     <div class="glow-spot glow-spot-3"></div>
@@ -17,14 +20,20 @@
         <!-- Header -->
         <header>
             <a href="#" class="logo" id="logoLink">
-                <span>🏠</span> Hata<span>.kz</span>
+                <i data-lucide="home" class="logo-icon"></i> Hata<span>.kz</span>
             </a>
             <div class="nav-actions">
                 <!-- Theme Switcher -->
-                <button class="btn btn-secondary" id="themeToggleBtn" style="font-size: 0.85rem; padding: 0.5rem 1rem;">🌙 Темная</button>
+                <button class="btn btn-secondary" id="themeToggleBtn" style="font-size: 0.85rem; padding: 0.5rem 1rem;">
+                    <i data-lucide="moon" style="width: 14px; height: 14px; margin-right: 4px;"></i>
+                    <span>Темная</span>
+                </button>
                 
                 <!-- Admin shortcut -->
-                <button class="btn btn-secondary" id="adminPanelBtn" style="font-size: 0.85rem; padding: 0.5rem 1rem;">👑 Панель</button>
+                <button class="btn btn-secondary" id="adminPanelBtn" style="font-size: 0.85rem; padding: 0.5rem 1rem;">
+                    <i data-lucide="shield" style="width: 14px; height: 14px; margin-right: 4px;"></i>
+                    <span>Панель</span>
+                </button>
                 
                 <!-- Auth status container -->
                 <div id="authContainer">
@@ -33,16 +42,16 @@
             </div>
         </header>
 
-        <!-- Category Toggle (Мне нужна комната / Сдаю комнату) -->
+        <!-- Category Toggle (Swapped: Search flat shows have_room, Find roommate shows need_room) -->
         <div class="category-toggle">
-            <div class="toggle-option active" id="tabNeedRoom" data-category="need_room">Мне нужна комната</div>
-            <div class="toggle-option" id="tabHaveRoom" data-category="have_room">Сдаю комнату / Подселение</div>
+            <div class="toggle-option active" id="tabNeedRoom" data-category="have_room">Ищу квартиру</div>
+            <div class="toggle-option" id="tabHaveRoom" data-category="need_room">Ищу сожителя / На подселение</div>
         </div>
 
         <!-- Filters Section -->
         <section class="filter-card">
             <div class="filter-grid">
-                <!-- City Selector (loaded dynamically in JS) -->
+                <!-- City Selector -->
                 <div class="filter-group">
                     <label for="filterCity">Город</label>
                     <select id="filterCity" class="form-control">
@@ -54,8 +63,8 @@
                 <div class="filter-group">
                     <label>Бюджет (₸)</label>
                     <div style="display: flex; gap: 0.5rem;">
-                        <input type="number" id="filterBudgetMin" class="form-control" placeholder="От 10 000" min="10000" max="1000000">
-                        <input type="number" id="filterBudgetMax" class="form-control" placeholder="До 1 000 000" min="10000" max="1000000">
+                        <input type="text" id="filterBudgetMin" class="form-control" placeholder="От 10 000">
+                        <input type="text" id="filterBudgetMax" class="form-control" placeholder="До 1 000 000">
                     </div>
                 </div>
 
@@ -94,8 +103,14 @@
         <!-- User Profile listings panel (Hidden when not logged in) -->
         <section class="profile-panel" id="userProfilePanel" style="display: none;">
             <div class="profile-header">
-                <h3>🙋‍♂️ Ваши объявления (Кабинет)</h3>
-                <button class="btn btn-lime" id="createListingBtn">+ Создать объявление</button>
+                <h3>
+                    <i data-lucide="user" style="width: 18px; height: 18px; margin-right: 6px; vertical-align: middle;"></i>
+                    Ваши объявления (Кабинет)
+                </h3>
+                <button class="btn btn-lime" id="createListingBtn">
+                    <i data-lucide="plus" style="width: 14px; height: 14px; margin-right: 4px;"></i>
+                    Создать объявление
+                </button>
             </div>
             <div class="user-listings-list" id="userListingsContainer">
                 <!-- Loaded dynamically -->
@@ -124,7 +139,14 @@
             </div>
             <div class="modal-body">
                 <div class="google-auth-box">
-                    <p class="text-secondary" style="font-size: 0.9rem;">Выберите демо-аккаунт Google для быстрого входа:</p>
+                    <p class="text-secondary" style="font-size: 0.9rem;">Используйте ваш Google-аккаунт для безопасного входа:</p>
+                    <button class="google-btn" id="googleRealLoginBtn" style="background-color: #4285F4; color: white; border: none; margin-bottom: 1rem;">
+                        <i data-lucide="log-in" style="width: 16px; height: 16px; margin-right: 8px;"></i>
+                        <span>Войти через Google</span>
+                    </button>
+                    
+                    <div style="width: 100%; text-align: center; border-bottom: 1px solid var(--border-color); line-height: 0.1em; margin: 10px 0 20px;"><span style="background:var(--bg-secondary); padding:0 10px; font-size:0.75rem; color:var(--text-muted);">ИЛИ ДЕМО-ВХОД</span></div>
+                    
                     <button class="google-btn" onclick="mockGoogleLogin('user-mock-1')">
                         <img class="user-avatar" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop" alt="">
                         <span>Аружан (Студент)</span>
@@ -155,23 +177,23 @@
             </div>
             <form id="listingForm" onsubmit="handleListingSubmit(event)">
                 <input type="hidden" id="formListingId" value="">
-                <input type="hidden" id="formCategory" value="need_room">
+                <input type="hidden" id="formCategory" value="have_room">
                 
                 <div class="modal-body">
                     <div class="form-grid">
                         <!-- Budget -->
                         <div class="filter-group">
                             <label for="formBudget" id="formBudgetLabel">Бюджет (₸/мес) *</label>
-                            <input type="number" id="formBudget" class="form-control" placeholder="От 10 000 до 1 000 000" min="10000" max="1000000" required>
+                            <input type="text" id="formBudget" class="form-control" placeholder="От 10 000 до 1 000 000" required>
                         </div>
                         
                         <!-- Age -->
                         <div class="filter-group">
                             <label for="formAge">Ваш возраст *</label>
-                            <input type="number" id="formAge" class="form-control" placeholder="Возраст" min="16" max="99" required>
+                            <input type="text" id="formAge" class="form-control" placeholder="Возраст" required>
                         </div>
 
-                        <!-- City (Loaded dynamically in JS) -->
+                        <!-- City -->
                         <div class="filter-group">
                             <label for="formCity">Город *</label>
                             <select id="formCity" class="form-control" onchange="updateFormDistricts()">
@@ -204,7 +226,7 @@
                             <label for="formWhatsapp">Номер телефона (WhatsApp) *</label>
                             <div style="position:relative;">
                                 <span style="position:absolute; left:12px; top:10px; font-weight:700; color:var(--text-secondary);">+7</span>
-                                <input type="tel" id="formWhatsapp" class="form-control" style="padding-left:36px;" placeholder="7771234567" pattern="[0-9]{10}" title="Введите 10 цифр номера начиная с 7" required>
+                                <input type="text" id="formWhatsapp" class="form-control" style="padding-left:36px;" placeholder="7771234567" required>
                             </div>
                             <span style="font-size:0.75rem; color:var(--text-muted);">Без скобок и дефисов. Пример: 7771234567.</span>
                         </div>
@@ -273,7 +295,7 @@
                                 <div class="image-previews-container" id="photoPreviews">
                                     <!-- Dynamic preview boxes -->
                                 </div>
-                                <span style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem; display:block;">Нажмите на плюс, чтобы добавить ссылки на фото (автозагрузка заглушек для демо).</span>
+                                <span style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem; display:block;">Нажмите на плюс, чтобы добавить ссылки на фото.</span>
                             </div>
                         </div>
 
@@ -342,9 +364,8 @@
                 <!-- Kaspi QR payment simulation -->
                 <div id="paymentBlock" style="margin-top:2rem; text-align:center; padding:1.5rem; background:rgba(0,0,0,0.2); border-radius:var(--radius-md); border:1.5px solid var(--border-color);">
                     <h3 style="margin-bottom:0.75rem; justify-content:center;">Оплата через Kaspi.kz</h3>
-                    <!-- Quick mockup QR code using styles -->
+                    <!-- Quick mockup QR code -->
                     <div style="width:120px; height:120px; margin:0 auto 1rem; background:white; padding:10px; display:flex; flex-wrap:wrap; border-radius:var(--radius-sm);">
-                        <!-- Fake QR look -->
                         <div style="width:100%; height:100%; border:6px solid #f14635; display:flex; justify-content:center; align-items:center; font-weight:800; font-size:12px; color:#f14635; background: white;">Kaspi QR</div>
                     </div>
                     <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:1rem;">
@@ -360,7 +381,10 @@
     <div class="modal-overlay" id="adminModal">
         <div class="modal-content" style="max-width: 850px;">
             <div class="modal-header">
-                <h2>👑 Панель Администратора Hata.kz</h2>
+                <h2>
+                    <i data-lucide="shield" style="width:18px; height:18px; margin-right:6px; vertical-align:middle;"></i>
+                    Панель Администратора Hata.kz
+                </h2>
                 <button class="modal-close" onclick="closeModal('adminModal')">&times;</button>
             </div>
             <div class="modal-body">
@@ -370,27 +394,38 @@
                         <h3>Настройки тарифов</h3>
                         <div class="filter-group" style="margin-top: 1rem;">
                             <label for="adminPostingFee">Плата за публикацию (₸)</label>
-                            <input type="number" id="adminPostingFee" class="form-control" value="0">
+                            <input type="text" id="adminPostingFee" class="form-control" value="0">
                         </div>
                         <div class="filter-group">
                             <label for="adminPromo3Days">Топ на 3 дня (₸)</label>
-                            <input type="number" id="adminPromo3Days" class="form-control" value="190">
+                            <input type="text" id="adminPromo3Days" class="form-control" value="190">
                         </div>
                         <div class="filter-group">
                             <label for="adminPromoWeek">Топ на неделю (₸)</label>
-                            <input type="number" id="adminPromoWeek" class="form-control" value="490">
+                            <input type="text" id="adminPromoWeek" class="form-control" value="490">
                         </div>
                         <div class="filter-group">
                             <label for="adminPromoMonth">Топ на месяц (₸)</label>
-                            <input type="number" id="adminPromoMonth" class="form-control" value="590">
+                            <input type="text" id="adminPromoMonth" class="form-control" value="590">
                         </div>
-                        <button class="btn btn-lime" onclick="saveAdminSettings()" style="margin-top: 1rem;">Сохранить тарифы</button>
+                        
+                        <h3 style="margin-top: 1rem;">Настройки Supabase Auth</h3>
+                        <div class="filter-group">
+                            <label for="adminSupabaseUrl">Supabase URL</label>
+                            <input type="text" id="adminSupabaseUrl" class="form-control" placeholder="https://your-project.supabase.co">
+                        </div>
+                        <div class="filter-group">
+                            <label for="adminSupabaseAnonKey">Supabase Anon Key</label>
+                            <input type="text" id="adminSupabaseAnonKey" class="form-control" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+                        </div>
+                        
+                        <button class="btn btn-lime" onclick="saveAdminSettings()" style="margin-top: 1rem;">Сохранить настройки</button>
                     </div>
 
                     <!-- Right: list of listings for moderation -->
                     <div class="admin-main">
                         <h3>Модерация объявлений</h3>
-                        <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem;">
+                        <div style="max-height: 480px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem;">
                             <table style="width:100%; border-collapse:collapse; text-align:left; font-size:0.85rem;">
                                 <thead>
                                     <tr style="border-bottom: 2px solid var(--border-color); color:var(--text-secondary);">

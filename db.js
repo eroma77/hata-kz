@@ -4,7 +4,7 @@
 const MOCK_LISTINGS = [
     {
         id: "mock-1",
-        category: "have_room",
+        category: "have_room", // Будет отображаться во вкладке "Ищу квартиру"
         ownerId: "user-mock-1",
         ownerName: "Аружан",
         ownerAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
@@ -17,7 +17,7 @@ const MOCK_LISTINGS = [
         occupation: "student",
         roomCount: 2,
         roommateCount: 1,
-        description: "Привет! Ищу соседку-студентку в уютную двухкомнатную квартиру на пересечении Абая-Манаса. Квартира полностью меблирована, есть скоростной интернет, стиралка, микроволновка. Живу сама, учусь в КазНУ. Ищу чистоплотную, адекватную сожительницу без вредных привычек.",
+        description: "Привет! Сдаю комнату для студентки в уютной двухкомнатной квартире на пересечении Абая-Манаса. Квартира полностью меблирована, есть скоростной интернет, стиралка, микроволновка. Живу сама, учусь в КазНУ. Ищу чистоплотную, адекватную сожительницу без вредных привычек.",
         photos: [
             "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=600&h=400&fit=crop",
             "https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=600&h=400&fit=crop",
@@ -33,7 +33,7 @@ const MOCK_LISTINGS = [
     },
     {
         id: "mock-2",
-        category: "need_room",
+        category: "need_room", // Будет отображаться во вкладке "Ищу человека на подселение"
         ownerId: "user-mock-2",
         ownerName: "Данияр",
         ownerAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
@@ -58,7 +58,7 @@ const MOCK_LISTINGS = [
     },
     {
         id: "mock-3",
-        category: "have_room",
+        category: "have_room", // Будет отображаться во вкладке "Ищу квартиру"
         ownerId: "user-mock-3",
         ownerName: "Камила",
         ownerAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop",
@@ -87,7 +87,7 @@ const MOCK_LISTINGS = [
     },
     {
         id: "mock-4",
-        category: "need_room",
+        category: "need_room", // Будет отображаться во вкладке "Ищу человека на подселение"
         ownerId: "user-mock-4",
         ownerName: "Адиль",
         ownerAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
@@ -112,20 +112,20 @@ const MOCK_LISTINGS = [
     },
     {
         id: "mock-5",
-        category: "need_room",
+        category: "need_room", // Будет отображаться во вкладке "Ищу человека на подселение"
         ownerId: "user-mock-2",
         ownerName: "Данияр",
         ownerAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
         budget: 85000,
         age: 23,
         city: "pavlodar",
-        districts: [], // Павлодар has no districts
+        districts: [],
         whatsapp: "7778889900",
         gender: "male",
         occupation: "work",
         roomCount: 2,
         roommateCount: 1,
-        description: "Ищу сожителя в Павлодаре, снимаю хорошую двушку в центре. Районов в выборе нет, так как город небольшой. Оплата 85 тыс тг плюс коммуналка. Сам работаю инженером. Чистоплотный, без вредных привычек.",
+        description: "Я студент, ищу сожителя в Павлодаре, снимаю хорошую двушку в центре. Оплата 85 тыс тг плюс коммуналка. Сам работаю инженером. Чистоплотный, без вредных привычек.",
         photos: [],
         address: "",
         gisLink: "",
@@ -139,28 +139,14 @@ const MOCK_LISTINGS = [
 
 class HataDatabase {
     constructor() {
+        this.supabaseClient = null;
         this.init();
     }
 
     init() {
-        // Reset or initialize listings to align with new mock configurations
-        // If cities uralsk/pavlodar are not in config we might need to reset localStorage listings
-        const currentListings = localStorage.getItem('hata_listings');
-        if (!currentListings) {
+        // Initialize listings
+        if (!localStorage.getItem('hata_listings')) {
             localStorage.setItem('hata_listings', JSON.stringify(MOCK_LISTINGS));
-        } else {
-            try {
-                // If it exists, let's verify if uralsk or pavlodar items exist.
-                // If the user refreshed they might want the fresh mock database with new districts
-                const parsed = JSON.parse(currentListings);
-                const hasUpdatedMocks = parsed.some(item => item.city === 'pavlodar' || item.districts.includes("Нуринский район") || item.districts.includes("Сарайшык"));
-                if (!hasUpdatedMocks) {
-                    // Let's reset the database to include the new districts and Pavlodar mock
-                    localStorage.setItem('hata_listings', JSON.stringify(MOCK_LISTINGS));
-                }
-            } catch (e) {
-                localStorage.setItem('hata_listings', JSON.stringify(MOCK_LISTINGS));
-            }
         }
 
         // Initialize users (empty or mock users)
@@ -174,8 +160,51 @@ class HataDatabase {
             localStorage.setItem('hata_users', JSON.stringify(mockUsers));
         }
 
+        // Initialize Supabase Client if configured
+        this.initSupabase();
+
         // Run archiving daemon check
         this.runArchivingDaemon();
+    }
+
+    initSupabase() {
+        const config = HataConfig; // Loaded from config.js
+        if (typeof supabase !== 'undefined' && config.supabaseUrl && config.supabaseUrl.startsWith('https://') && config.supabaseUrl !== 'https://your-project.supabase.co') {
+            try {
+                this.supabaseClient = supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+                console.log("Supabase client initialized successfully.");
+                this.setupSupabaseAuthListener();
+            } catch (e) {
+                console.warn("Failed to initialize Supabase client:", e);
+            }
+        }
+    }
+
+    setupSupabaseAuthListener() {
+        if (!this.supabaseClient) return;
+        this.supabaseClient.auth.onAuthStateChange((event, session) => {
+            if (session && session.user) {
+                const user = {
+                    id: session.user.id,
+                    name: session.user.user_metadata.full_name || session.user.email,
+                    email: session.user.email,
+                    avatar: session.user.user_metadata.avatar_url || '',
+                    isAdmin: session.user.email === 'admin@hata.kz'
+                };
+                localStorage.setItem('hata_current_user', JSON.stringify(user));
+                
+                // Keep users list in sync
+                const users = JSON.parse(localStorage.getItem('hata_users') || '[]');
+                if (!users.some(u => u.id === user.id)) {
+                    users.push(user);
+                    localStorage.setItem('hata_users', JSON.stringify(users));
+                }
+            } else {
+                localStorage.removeItem('hata_current_user');
+                sessionStorage.removeItem('hata_current_user');
+            }
+            window.dispatchEvent(new Event('hata_auth_changed'));
+        });
     }
 
     // Get currentUser
@@ -184,7 +213,7 @@ class HataDatabase {
         return user ? JSON.parse(user) : null;
     }
 
-    // Login user (Google Auth mock)
+    // Login user (Google Auth mock fallback)
     login(user, remember = true) {
         const serialized = JSON.stringify(user);
         if (remember) {
@@ -193,7 +222,6 @@ class HataDatabase {
             sessionStorage.setItem('hata_current_user', serialized);
         }
         
-        // Add to users list if new
         const users = JSON.parse(localStorage.getItem('hata_users') || '[]');
         if (!users.some(u => u.id === user.id)) {
             users.push(user);
@@ -242,7 +270,6 @@ class HataDatabase {
 
         const all = JSON.parse(localStorage.getItem('hata_listings') || '[]');
         
-        // Check active count limit
         const activeCount = all.filter(item => item.ownerId === user.id && item.status === 'active').length;
         if (activeCount >= 7) {
             throw new Error("Максимально разрешено иметь 7 активных объявлений. Удалите или архивируйте старое объявление.");
@@ -386,7 +413,6 @@ class HataDatabase {
             const item = all[i];
             
             if (item.status === 'active') {
-                let expiryDays = 20;
                 if (item.boostExpiredAt) {
                     const boostExpiry = new Date(item.boostExpiredAt).getTime();
                     if (boostExpiry > now) {

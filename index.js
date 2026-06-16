@@ -1,16 +1,16 @@
 // Hata.kz Application Controller
 
 // Global state
-let currentCategory = 'need_room'; // 'need_room' or 'have_room'
+let currentCategory = 'have_room'; // 'have_room' (Ищу квартиру) or 'need_room' (Ищу сожителя)
 let selectedFilterDistricts = new Set();
 let selectedFormDistricts = new Set();
 let formImagesList = [];
 let activePromoListingId = null;
 let activePromoDays = 3;
+let filterHasErrors = false;
 
 // Initialize app on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
-    // Populate dropdowns from config
     populateCitiesDropdowns();
 
     // Initialize UI triggers
@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initForm();
     initAdmin();
     
-    // Print Local IP & Mobile Access guide to console for the user
+    // Print local access guides
     printMobileAccessGuide();
     
     // Initial Render
@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('hata_auth_changed', () => {
         updateAuthHeader();
         renderUserProfile();
+        lucide.createIcons();
     });
     
     window.addEventListener('hata_config_changed', () => {
@@ -45,6 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
         populateCitiesDropdowns();
         renderListings();
     });
+
+    // Initial run of Lucide icons
+    lucide.createIcons();
 });
 
 // Modal helpers
@@ -63,7 +67,6 @@ function initTheme() {
     const themeBtn = document.getElementById('themeToggleBtn');
     if (!themeBtn) return;
     
-    // Default to light theme
     const savedTheme = localStorage.getItem('hata_theme') || 'light';
     setTheme(savedTheme);
     
@@ -79,13 +82,18 @@ function setTheme(theme) {
     if (theme === 'dark') {
         document.body.classList.remove('light-theme');
         document.body.classList.add('dark-theme');
-        if (themeBtn) themeBtn.textContent = '☀️ Светлая';
+        if (themeBtn) {
+            themeBtn.innerHTML = `<i data-lucide="sun" style="width: 14px; height: 14px; margin-right: 4px;"></i><span>Светлая</span>`;
+        }
     } else {
         document.body.classList.remove('dark-theme');
         document.body.classList.add('light-theme');
-        if (themeBtn) themeBtn.textContent = '🌙 Темная';
+        if (themeBtn) {
+            themeBtn.innerHTML = `<i data-lucide="moon" style="width: 14px; height: 14px; margin-right: 4px;"></i><span>Темная</span>`;
+        }
     }
     localStorage.setItem('hata_theme', theme);
+    lucide.createIcons();
 }
 
 // --- POPULATE CITIES DYNAMICALLY ---
@@ -122,12 +130,31 @@ function populateCitiesDropdowns() {
     }
 }
 
-// --- AUTHENTICATION MOCK ---
+// --- AUTHENTICATION & SUPABASE INTEGRATION ---
 function initAuth() {
     const loginBtn = document.getElementById('loginBtn');
     if (loginBtn) {
         loginBtn.addEventListener('click', () => openModal('loginModal'));
     }
+
+    // Real Supabase Auth redirection trigger
+    const googleRealLoginBtn = document.getElementById('googleRealLoginBtn');
+    if (googleRealLoginBtn) {
+        googleRealLoginBtn.addEventListener('click', async () => {
+            if (db.supabaseClient) {
+                const { error } = await db.supabaseClient.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: window.location.origin + window.location.pathname
+                    }
+                });
+                if (error) alert("Ошибка авторизации Supabase: " + error.message);
+            } else {
+                alert("Supabase не настроен в Панели Администратора. Используйте демо-вход ниже.");
+            }
+        });
+    }
+
     updateAuthHeader();
     renderUserProfile();
 }
@@ -145,9 +172,12 @@ function updateAuthHeader() {
                 <span class="username">${user.name}</span>
                 <span style="font-size: 0.75rem; margin-left: 0.25rem;">▼</span>
             </div>
-            <!-- Context menu popup -->
+            <!-- Context dropdown -->
             <div id="userMenuDropdown" style="display:none; position:absolute; right:1.5rem; top:5rem; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:var(--radius-md); overflow:hidden; box-shadow:var(--shadow-md); z-index:10;">
-                <button class="btn" style="background:transparent; color:var(--text-primary); text-align:left; border-radius:0; padding:0.75rem 1.5rem; font-size:0.85rem; width:100%;" onclick="logoutUser()">Выйти</button>
+                <button class="btn" style="background:transparent; color:var(--text-primary); text-align:left; border-radius:0; padding:0.75rem 1.5rem; font-size:0.85rem; width:100%; border:none;" onclick="logoutUser()">
+                    <i data-lucide="log-out" style="width:14px; height:14px; margin-right:4px;"></i>
+                    Выйти
+                </button>
             </div>
         `;
         
@@ -186,7 +216,10 @@ window.mockGoogleLogin = function(id) {
     closeModal('loginModal');
 };
 
-window.logoutUser = function() {
+window.logoutUser = async function() {
+    if (db.supabaseClient) {
+        await db.supabaseClient.auth.signOut();
+    }
     db.logout();
 };
 
@@ -196,22 +229,60 @@ function initCategoryTabs() {
     const tabHaveRoom = document.getElementById('tabHaveRoom');
     
     if (tabNeedRoom && tabHaveRoom) {
-        tabNeedRoom.addEventListener('click', () => switchCategoryTab('need_room'));
-        tabHaveRoom.addEventListener('click', () => switchCategoryTab('have_room'));
+        tabNeedRoom.addEventListener('click', () => switchCategoryTab('have_room')); // Ищу квартиру -> shows have_room listings
+        tabHaveRoom.addEventListener('click', () => switchCategoryTab('need_room')); // Ищу сожителя -> shows need_room listings
     }
 }
 
 function switchCategoryTab(cat) {
     currentCategory = cat;
-    document.getElementById('tabNeedRoom').classList.toggle('active', cat === 'need_room');
-    document.getElementById('tabHaveRoom').classList.toggle('active', cat === 'have_room');
+    document.getElementById('tabNeedRoom').classList.toggle('active', cat === 'have_room');
+    document.getElementById('tabHaveRoom').classList.toggle('active', cat === 'need_room');
     
     selectedFilterDistricts.clear();
     updateDistrictsFilter();
     renderListings();
 }
 
-// --- FILTERS LOGIC ---
+// --- MASKS & NUMERIC VALIDATIONS ---
+function formatNumberWithSpaces(val) {
+    const clean = val.toString().replace(/\D/g, '');
+    return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+function parseFormattedNumber(val) {
+    return parseInt(val.toString().replace(/\D/g, '')) || 0;
+}
+
+// Setup input listeners to strip non-digits and format numbers dynamically
+function attachNumberFormatting(inputEl, boundsCheckCallback = null) {
+    if (!inputEl) return;
+    
+    inputEl.addEventListener('input', (e) => {
+        // Strip non-digits
+        const start = e.target.selectionStart;
+        const oldLen = e.target.value.length;
+        
+        const rawDigits = e.target.value.replace(/\D/g, '');
+        e.target.value = formatNumberWithSpaces(rawDigits);
+        
+        // Adjust cursor position
+        const newLen = e.target.value.length;
+        e.target.setSelectionRange(start + (newLen - oldLen), start + (newLen - oldLen));
+        
+        if (boundsCheckCallback) boundsCheckCallback();
+    });
+}
+
+// Strip numbers from text input fields (e.g. form fields that shouldn't contain digits)
+function attachTextOnlyConstraint(inputEl) {
+    if (!inputEl) return;
+    inputEl.addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/[0-9]/g, '');
+    });
+}
+
+// --- FILTERS & VALIDATION ENGINE ---
 function initFilters() {
     const filterCity = document.getElementById('filterCity');
     const filterBudgetMin = document.getElementById('filterBudgetMin');
@@ -223,29 +294,56 @@ function initFilters() {
         filterCity.addEventListener('change', () => {
             selectedFilterDistricts.clear();
             updateDistrictsFilter();
-            renderListings();
+            if (!filterHasErrors) renderListings();
         });
     }
     
-    // Listeners for budget min/max and price validations
-    const triggerFilterRender = () => {
-        // Enforce validations in filter budget bounds if filled
-        const minVal = parseInt(filterBudgetMin.value);
-        const maxVal = parseInt(filterBudgetMax.value);
-        
-        if (minVal && minVal < 10000) filterBudgetMin.value = 10000;
-        if (minVal && minVal > 1000000) filterBudgetMin.value = 1000000;
-        
-        if (maxVal && maxVal < 10000) filterBudgetMax.value = 10000;
-        if (maxVal && maxVal > 1000000) filterBudgetMax.value = 1000000;
-        
-        renderListings();
-    };
+    // Attach masks
+    attachNumberFormatting(filterBudgetMin, validateFilterBudgetRange);
+    attachNumberFormatting(filterBudgetMax, validateFilterBudgetRange);
+    
+    if (filterGender) filterGender.addEventListener('change', () => { if (!filterHasErrors) renderListings(); });
+    if (filterRooms) filterRooms.addEventListener('change', () => { if (!filterHasErrors) renderListings(); });
+}
 
-    if (filterBudgetMin) filterBudgetMin.addEventListener('change', triggerFilterRender);
-    if (filterBudgetMax) filterBudgetMax.addEventListener('change', triggerFilterRender);
-    if (filterGender) filterGender.addEventListener('change', renderListings);
-    if (filterRooms) filterRooms.addEventListener('change', renderListings);
+function validateFilterBudgetRange() {
+    const minEl = document.getElementById('filterBudgetMin');
+    const maxEl = document.getElementById('filterBudgetMax');
+    
+    const minVal = parseFormattedNumber(minEl.value);
+    const maxVal = parseFormattedNumber(maxEl.value);
+    
+    let hasErr = false;
+    
+    // Reset borders
+    minEl.classList.remove('is-invalid');
+    maxEl.classList.remove('is-invalid');
+    
+    // Validation 1: min bounds
+    if (minEl.value && (minVal < 10000 || minVal > 1000000)) {
+        minEl.classList.add('is-invalid');
+        hasErr = true;
+    }
+    
+    // Validation 2: max bounds
+    if (maxEl.value && (maxVal < 10000 || maxVal > 1000000)) {
+        maxEl.classList.add('is-invalid');
+        hasErr = true;
+    }
+    
+    // Validation 3: Min > Max
+    if (minEl.value && maxEl.value && minVal > maxVal) {
+        minEl.classList.add('is-invalid');
+        maxEl.classList.add('is-invalid');
+        hasErr = true;
+    }
+    
+    filterHasErrors = hasErr;
+    
+    // If validation fails, completely block query filtering
+    if (!filterHasErrors) {
+        renderListings();
+    }
 }
 
 function updateDistrictsFilter() {
@@ -257,10 +355,8 @@ function updateDistrictsFilter() {
     container.innerHTML = '';
     
     const cityInfo = HataConfig.cities[cityKey];
-    
-    // Check if city has districts configured
     if (!cityInfo || !cityInfo.hasDistricts) {
-        wrapper.style.display = 'none'; // Hide districts selector completely
+        wrapper.style.display = 'none';
         return;
     }
     
@@ -282,7 +378,7 @@ function updateDistrictsFilter() {
                     selectedFilterDistricts.add(district);
                     pill.classList.add('selected');
                 }
-                renderListings();
+                if (!filterHasErrors) renderListings();
             });
             container.appendChild(pill);
         });
@@ -296,22 +392,21 @@ function renderListings() {
     
     const activeListings = db.getListings();
     
-    // Read Filter States
     const cityFilter = document.getElementById('filterCity').value;
-    const budgetMinVal = parseInt(document.getElementById('filterBudgetMin').value) || 0;
-    const budgetMaxVal = parseInt(document.getElementById('filterBudgetMax').value) || 1000000;
+    const budgetMinVal = parseFormattedNumber(document.getElementById('filterBudgetMin').value) || 10000;
+    const budgetMaxVal = parseFormattedNumber(document.getElementById('filterBudgetMax').value) || 1000000;
     const genderFilter = document.getElementById('filterGender').value;
     const roomFilter = document.getElementById('filterRooms').value;
     
     const cityInfo = HataConfig.cities[cityFilter];
     const cityHasDistricts = cityInfo ? cityInfo.hasDistricts : false;
 
-    // Filter
+    // Filter listings matching current tab
     let filtered = activeListings.filter(item => {
         if (item.category !== currentCategory) return false;
         if (item.city !== cityFilter) return false;
         
-        // Range budget filter
+        // Match range bounds
         if (item.budget < budgetMinVal || item.budget > budgetMaxVal) return false;
         
         if (genderFilter !== 'any' && item.gender !== genderFilter) return false;
@@ -324,7 +419,6 @@ function renderListings() {
             }
         }
         
-        // Districts Filter: skip or disable check if Pavlodar / city has no districts
         if (cityHasDistricts && selectedFilterDistricts.size > 0) {
             const hasMatch = item.districts.some(dist => selectedFilterDistricts.has(dist));
             if (!hasMatch) return false;
@@ -333,7 +427,7 @@ function renderListings() {
         return true;
     });
     
-    // Sorting: Promoted first, then by date descending
+    // Sort promoted listings to the top
     const now = new Date().getTime();
     filtered.sort((a, b) => {
         const aBoosted = a.boostExpiredAt && new Date(a.boostExpiredAt).getTime() > now;
@@ -350,11 +444,12 @@ function renderListings() {
     if (filtered.length === 0) {
         grid.innerHTML = `
             <div class="empty-feed form-full">
-                <div class="empty-icon">🔍</div>
+                <div class="empty-icon"><i data-lucide="search" style="width:48px; height:48px;"></i></div>
                 <div class="empty-title">Ничего не найдено</div>
                 <p>Попробуйте сбросить фильтры бюджета или изменить город.</p>
             </div>
         `;
+        lucide.createIcons();
         return;
     }
     
@@ -362,7 +457,6 @@ function renderListings() {
         const isBoosted = item.boostExpiredAt && new Date(item.boostExpiredAt).getTime() > now;
         const formattedDate = formatListingDate(item.createdAt);
         
-        // Photo carousel
         let carouselHTML = '';
         if (item.photos && item.photos.length > 0) {
             carouselHTML = `
@@ -377,7 +471,7 @@ function renderListings() {
             carouselHTML = `
                 <div class="card-gallery">
                     <div class="no-photo">
-                        <span class="no-photo-icon">📷</span>
+                        <i data-lucide="camera" class="no-photo-icon"></i>
                         <span>Без фотографий</span>
                     </div>
                 </div>
@@ -392,13 +486,12 @@ function renderListings() {
 
         const genderLabel = item.gender === 'male' ? 'Парень' : 'Девушка';
         
-        // Districts display string (handled safely if empty)
         const distStr = item.districts && item.districts.length > 0
-            ? `<span class="card-tag accent">${item.districts.join(', ')}</span>`
+            ? `<span class="card-tag accent"><i data-lucide="map-pin" style="width:10px; height:10px; margin-right:2px; vertical-align:middle;"></i>${item.districts.join(', ')}</span>`
             : '';
 
         const mapButton = (item.gisLink && item.category === 'have_room') 
-            ? `<a href="${item.gisLink}" target="_blank" class="btn btn-secondary">🗺️ В 2GIS</a>`
+            ? `<a href="${item.gisLink}" target="_blank" class="btn btn-secondary"><i data-lucide="map"></i><span>В 2GIS</span></a>`
             : '';
             
         const cleanPhone = item.whatsapp.startsWith('8') ? '7' + item.whatsapp.substring(1) : item.whatsapp;
@@ -417,7 +510,7 @@ function renderListings() {
                         </div>
                     </div>
                     
-                    <div class="card-title">${item.budget.toLocaleString()} ₸ <span>/ мес</span></div>
+                    <div class="card-title">${formatNumberWithSpaces(item.budget)} ₸ <span>/ мес</span></div>
                     
                     <div class="card-tags">
                         <span class="card-tag accent">${genderLabel}, ${item.age} лет</span>
@@ -431,13 +524,19 @@ function renderListings() {
                     <p class="card-desc">${item.description}</p>
                     
                     <div class="card-footer">
-                        <a href="${waLink}" target="_blank" class="btn btn-primary" style="background:#25d366; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.25);">💬 WhatsApp</a>
+                        <a href="${waLink}" target="_blank" class="btn btn-primary" style="background:#25d366; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.25);">
+                            <i data-lucide="message-square"></i>
+                            <span>WhatsApp</span>
+                        </a>
                         ${mapButton}
                     </div>
                 </div>
             </div>
         `;
     }).join('');
+    
+    // Load icons
+    lucide.createIcons();
 }
 
 function formatListingDate(isoString) {
@@ -485,27 +584,27 @@ function renderUserProfile() {
             badgesHTML += `<span class="item-badge archived">В архиве</span>`;
         }
         
-        const catLabel = item.category === 'need_room' ? 'Ищу сожителя' : 'Сдаю комнату';
+        const catLabel = item.category === 'have_room' ? 'Ищу сожителя (Сдам)' : 'Ищу комнату (Сниму)';
         const dateStr = new Date(item.createdAt).toLocaleDateString('ru-RU');
 
         let actionButtons = '';
         if (item.status === 'active') {
             actionButtons += `
-                <button class="btn btn-lime" style="font-size:0.75rem;" onclick="openPromoModal('${item.id}')">🚀 В ТОП</button>
-                <button class="btn btn-secondary" style="font-size:0.75rem;" onclick="editListing('${item.id}')">✏️ Редактировать</button>
-                <button class="btn btn-secondary" style="font-size:0.75rem; color:#ef4444; border-color:rgba(239, 68, 68, 0.2);" onclick="archiveListing('${item.id}')">📥 В архив</button>
+                <button class="btn btn-lime" style="font-size:0.75rem;" onclick="openPromoModal('${item.id}')"><i data-lucide="upload-cloud"></i>В ТОП</button>
+                <button class="btn btn-secondary" style="font-size:0.75rem;" onclick="editListing('${item.id}')"><i data-lucide="edit-3"></i></button>
+                <button class="btn btn-secondary" style="font-size:0.75rem; color:#ef4444; border-color:rgba(239, 68, 68, 0.2);" onclick="archiveListing('${item.id}')"><i data-lucide="archive"></i></button>
             `;
         } else {
             actionButtons += `
-                <button class="btn btn-lime" style="font-size:0.75rem;" onclick="reactivateListing('${item.id}')">📤 Активировать</button>
-                <button class="btn btn-danger" style="font-size:0.75rem;" onclick="deleteListing('${item.id}')">❌ Удалить</button>
+                <button class="btn btn-lime" style="font-size:0.75rem;" onclick="reactivateListing('${item.id}')"><i data-lucide="upload-cloud"></i>Активировать</button>
+                <button class="btn btn-danger" style="font-size:0.75rem;" onclick="deleteListing('${item.id}')"><i data-lucide="trash-2"></i></button>
             `;
         }
 
         return `
             <div class="user-listing-item">
                 <div class="item-info">
-                    <div class="item-title">${catLabel} - ${item.budget.toLocaleString()} ₸</div>
+                    <div class="item-title">${catLabel} - ${formatNumberWithSpaces(item.budget)} ₸</div>
                     <div class="item-meta">
                         <span>Дата: ${dateStr}</span>
                         <span>Город: ${HataConfig.cities[item.city].name}</span>
@@ -518,24 +617,70 @@ function renderUserProfile() {
             </div>
         `;
     }).join('');
+    
+    lucide.createIcons();
 }
 
-// --- FORM SUBMIT & EDIT ---
+window.archiveListing = function(id) {
+    if (confirm("Вы уверены, что хотите убрать объявление в архив?")) {
+        try {
+            db.archiveListing(id);
+        } catch (e) {
+            alert(e.message);
+        }
+    }
+};
+
+window.reactivateListing = function(id) {
+    try {
+        db.reactivateListing(id);
+    } catch (e) {
+        alert(e.message);
+    }
+};
+
+window.deleteListing = function(id) {
+    if (confirm("Удалить объявление навсегда? Это действие необратимо.")) {
+        try {
+            db.deleteListing(id);
+        } catch (e) {
+            alert(e.message);
+        }
+    }
+};
+
+// --- FORM CONTROLLER & VALIDATIONS ---
 function initForm() {
     const createListingBtn = document.getElementById('createListingBtn');
     if (createListingBtn) {
         createListingBtn.addEventListener('click', () => openListingForm());
     }
     
+    // Setup formatting and validations on creation form budget
+    const formBudget = document.getElementById('formBudget');
+    attachNumberFormatting(formBudget, validateFormBudgetBounds);
+    
+    // Setup numbers formatting on age (strip non-digits, max length 2)
+    const formAge = document.getElementById('formAge');
+    if (formAge) {
+        formAge.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/\D/g, '').substring(0, 2);
+        });
+    }
+
+    // Setup mask on phone (WhatsApp)
     const formWhatsapp = document.getElementById('formWhatsapp');
     if (formWhatsapp) {
+        formWhatsapp.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/\D/g, '').substring(0, 10);
+        });
+        
         formWhatsapp.addEventListener('focus', () => {
             const user = db.getCurrentUser();
             if (user) {
                 const suggestions = db.getAutoFillSuggestions(user.id);
                 if (suggestions.whatsapp && !formWhatsapp.value) {
                     formWhatsapp.value = suggestions.whatsapp;
-                    formWhatsapp.dispatchEvent(new Event('input'));
                 }
             }
         });
@@ -555,6 +700,20 @@ function initForm() {
     }
 }
 
+function validateFormBudgetBounds() {
+    const budgetEl = document.getElementById('formBudget');
+    const val = parseFormattedNumber(budgetEl.value);
+    const submitBtn = document.getElementById('formSubmitBtn');
+    
+    if (budgetEl.value && (val < 10000 || val > 1000000)) {
+        budgetEl.classList.add('is-invalid');
+        if (submitBtn) submitBtn.disabled = true;
+    } else {
+        budgetEl.classList.remove('is-invalid');
+        if (submitBtn) submitBtn.disabled = false;
+    }
+}
+
 function openListingForm(id = null) {
     const user = db.getCurrentUser();
     if (!user) {
@@ -571,8 +730,12 @@ function openListingForm(id = null) {
     const submitBtn = document.getElementById('formSubmitBtn');
     
     const config = loadConfig();
-    submitBtn.textContent = `Опубликовать (${config.pricing.postingFee} ₸)`;
+    submitBtn.textContent = `Опубликовать (${formatNumberWithSpaces(config.pricing.postingFee)} ₸)`;
     
+    // Invert mapping for posting
+    // Tab "Ищу квартиру" (displays have_room) -> User wants to POST "have_room" if they rent/offer flat.
+    // Wait, let's keep Category selection clean:
+    // User wants to post what is selected in currentCategory tab
     const formCat = document.getElementById('formCategory');
     formCat.value = currentCategory;
     
@@ -580,8 +743,8 @@ function openListingForm(id = null) {
     if (currentCategory === 'have_room') {
         detailsBlock.style.display = 'grid';
         document.getElementById('formBudgetLabel').textContent = 'Стоимость аренды (₸/мес) *';
-        document.getElementById('formGenderLabel').textContent = 'Кого вы ищете (Пол) *';
-        document.getElementById('formRoommateLabel').textContent = 'Сколько сожителей ищете *';
+        document.getElementById('formGenderLabel').textContent = 'Кого вы ищете (Пол сожителя) *';
+        document.getElementById('formRoommateLabel').textContent = 'Сколько человек ищете *';
         initFormPhotoPreviews();
     } else {
         detailsBlock.style.display = 'none';
@@ -603,8 +766,8 @@ function openListingForm(id = null) {
             if (item.category === 'have_room') {
                 detailsBlock.style.display = 'grid';
                 document.getElementById('formBudgetLabel').textContent = 'Стоимость аренды (₸/мес) *';
-                document.getElementById('formGenderLabel').textContent = 'Кого вы ищете (Пол) *';
-                document.getElementById('formRoommateLabel').textContent = 'Сколько сожителей ищете *';
+                document.getElementById('formGenderLabel').textContent = 'Кого вы ищете (Пол сожителя) *';
+                document.getElementById('formRoommateLabel').textContent = 'Сколько человек ищете *';
                 
                 document.getElementById('formAddress').value = item.address || '';
                 document.getElementById('formGisLink').value = item.gisLink || '';
@@ -620,7 +783,7 @@ function openListingForm(id = null) {
                 document.getElementById('formRoommateLabel').textContent = 'С кем хотите жить *';
             }
             
-            document.getElementById('formBudget').value = item.budget;
+            document.getElementById('formBudget').value = formatNumberWithSpaces(item.budget);
             document.getElementById('formAge').value = item.age;
             document.getElementById('formCity').value = item.city;
             document.getElementById('formGender').value = item.gender;
@@ -642,6 +805,7 @@ function openListingForm(id = null) {
         if (suggestions.whatsapp) document.getElementById('formWhatsapp').value = suggestions.whatsapp;
     }
     
+    validateFormBudgetBounds();
     updateFormDistricts();
     openModal('listingModal');
 }
@@ -655,8 +819,6 @@ window.updateFormDistricts = function() {
     container.innerHTML = '';
     
     const cityInfo = HataConfig.cities[cityKey];
-    
-    // Omit district selection completely if Pavlovdar / city has no districts
     if (!cityInfo || !cityInfo.hasDistricts) {
         wrapper.style.display = 'none';
         return;
@@ -736,15 +898,19 @@ window.handleListingSubmit = function(event) {
     const id = document.getElementById('formListingId').value;
     const category = document.getElementById('formCategory').value;
     
-    const budget = parseInt(document.getElementById('formBudget').value);
+    const budget = parseFormattedNumber(document.getElementById('formBudget').value);
     
-    // Strict price bounds validation [10 000 - 1 000 000] ₸
     if (budget < 10000 || budget > 1000000) {
-        alert("Недопустимый бюджет! Допустимый диапазон: от 10 000 до 1 000 000 тенге.");
+        alert("Ошибка: Допустимый бюджет от 10 000 до 1 000 000 тенге.");
         return;
     }
     
     const age = parseInt(document.getElementById('formAge').value);
+    if (!age || age < 16 || age > 99) {
+        alert("Пожалуйста, введите корректный возраст (от 16 до 99 лет)");
+        return;
+    }
+    
     const city = document.getElementById('formCity').value;
     const gender = document.getElementById('formGender').value;
     const occupation = document.getElementById('formOccupation').value;
@@ -756,7 +922,6 @@ window.handleListingSubmit = function(event) {
     const cityInfo = HataConfig.cities[city];
     let districts = [];
     
-    // Validate districts selection strictly if city has districts
     if (cityInfo && cityInfo.hasDistricts) {
         if (selectedFormDistricts.size === 0) {
             alert("Пожалуйста, выберите хотя бы один район/микрорайон!");
@@ -781,7 +946,7 @@ window.handleListingSubmit = function(event) {
     
     if (category === 'have_room') {
         if (formImagesList.length < 3) {
-            alert("Пожалуйста, прикрепите как минимум 3 фотографии квартиры!");
+            alert("Пожалуйста, загрузите не менее 3 фотографий квартиры.");
             return;
         }
         
@@ -791,7 +956,7 @@ window.handleListingSubmit = function(event) {
         const hasContract = document.getElementById('formContract').value === 'true';
         
         if (!address || !gisLink) {
-            alert("Поля 'Адрес' и 'Ссылка на 2GIS' обязательны!");
+            alert("Поля адреса и 2GIS ссылки обязательны для заполнения!");
             return;
         }
         
@@ -830,9 +995,9 @@ window.openPromoModal = function(id) {
     selectPromoOption('opt3Days', 3);
     
     const config = loadConfig();
-    document.getElementById('priceLabel3Days').textContent = `${config.pricing.promo3Days} ₸`;
-    document.getElementById('priceLabelWeek').textContent = `${config.pricing.promoWeek} ₸`;
-    document.getElementById('priceLabelMonth').textContent = `${config.pricing.promoMonth} ₸`;
+    document.getElementById('priceLabel3Days').textContent = `${formatNumberWithSpaces(config.pricing.promo3Days)} ₸`;
+    document.getElementById('priceLabelWeek').textContent = `${formatNumberWithSpaces(config.pricing.promoWeek)} ₸`;
+    document.getElementById('priceLabelMonth').textContent = `${formatNumberWithSpaces(config.pricing.promoMonth)} ₸`;
     
     openModal('promoModal');
 };
@@ -847,7 +1012,7 @@ window.selectPromoOption = function(optId, days) {
     if (days === 7) price = config.pricing.promoWeek;
     else if (days === 30) price = config.pricing.promoMonth;
     
-    document.getElementById('paySumLabel').textContent = `${price} ₸`;
+    document.getElementById('paySumLabel').textContent = `${formatNumberWithSpaces(price)} ₸`;
 };
 
 window.processMockPayment = function() {
@@ -877,22 +1042,34 @@ function initAdmin() {
             openModal('adminModal');
         });
     }
+
+    // Attach masks for admin pricing inputs
+    attachNumberFormatting(document.getElementById('adminPostingFee'));
+    attachNumberFormatting(document.getElementById('adminPromo3Days'));
+    attachNumberFormatting(document.getElementById('adminPromoWeek'));
+    attachNumberFormatting(document.getElementById('adminPromoMonth'));
 }
 
 function updateAdminInputs() {
     const config = loadConfig();
-    document.getElementById('adminPostingFee').value = config.pricing.postingFee;
-    document.getElementById('adminPromo3Days').value = config.pricing.promo3Days;
-    document.getElementById('adminPromoWeek').value = config.pricing.promoWeek;
-    document.getElementById('adminPromoMonth').value = config.pricing.promoMonth;
+    document.getElementById('adminPostingFee').value = formatNumberWithSpaces(config.pricing.postingFee);
+    document.getElementById('adminPromo3Days').value = formatNumberWithSpaces(config.pricing.promo3Days);
+    document.getElementById('adminPromoWeek').value = formatNumberWithSpaces(config.pricing.promoWeek);
+    document.getElementById('adminPromoMonth').value = formatNumberWithSpaces(config.pricing.promoMonth);
+    
+    document.getElementById('adminSupabaseUrl').value = config.supabaseUrl || '';
+    document.getElementById('adminSupabaseAnonKey').value = config.supabaseAnonKey || '';
 }
 
 window.saveAdminSettings = function() {
-    const postingFee = parseInt(document.getElementById('adminPostingFee').value) || 0;
-    const promo3Days = parseInt(document.getElementById('adminPromo3Days').value) || 0;
-    const promoWeek = parseInt(document.getElementById('adminPromoWeek').value) || 0;
-    const promoMonth = parseInt(document.getElementById('adminPromoMonth').value) || 0;
+    const postingFee = parseFormattedNumber(document.getElementById('adminPostingFee').value) || 0;
+    const promo3Days = parseFormattedNumber(document.getElementById('adminPromo3Days').value) || 0;
+    const promoWeek = parseFormattedNumber(document.getElementById('adminPromoWeek').value) || 0;
+    const promoMonth = parseFormattedNumber(document.getElementById('adminPromoMonth').value) || 0;
     
+    const supabaseUrl = document.getElementById('adminSupabaseUrl').value.trim();
+    const supabaseAnonKey = document.getElementById('adminSupabaseAnonKey').value.trim();
+
     const config = loadConfig();
     config.pricing = {
         postingFee,
@@ -900,9 +1077,15 @@ window.saveAdminSettings = function() {
         promoWeek,
         promoMonth
     };
+    config.supabaseUrl = supabaseUrl;
+    config.supabaseAnonKey = supabaseAnonKey;
     
     saveConfig(config);
-    alert("Настройки тарифов сохранены!");
+    
+    // Re-initialize Supabase client dynamically if credentials were modified
+    db.initSupabase();
+    
+    alert("Настройки сохранены! Если вы указали реальные данные Supabase, подключение обновится.");
 };
 
 function renderAdminModerationList() {
@@ -917,7 +1100,7 @@ function renderAdminModerationList() {
     }
     
     container.innerHTML = all.map(item => {
-        const catLabel = item.category === 'need_room' ? 'Ищу сожителя' : 'Сдаю комнату';
+        const catLabel = item.category === 'have_room' ? 'Ищу сожителя (Сдам)' : 'Ищу комнату (Сниму)';
         const districtsStr = item.districts && item.districts.length > 0 
             ? item.districts.slice(0, 2).join(', ') + (item.districts.length > 2 ? '...' : '') 
             : 'Все районы';
@@ -926,7 +1109,7 @@ function renderAdminModerationList() {
                 <td style="padding: 0.75rem;">${catLabel}</td>
                 <td style="padding: 0.75rem;">${item.ownerName}</td>
                 <td style="padding: 0.75rem;" title="${item.districts.join(', ')}">${districtsStr}</td>
-                <td style="padding: 0.75rem; font-weight:700;">${item.budget.toLocaleString()} ₸</td>
+                <td style="padding: 0.75rem; font-weight:700;">${formatNumberWithSpaces(item.budget)} ₸</td>
                 <td style="padding: 0.75rem; text-align:center;">
                     <button class="btn btn-danger" style="padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="deleteListing('${item.id}')">Удалить</button>
                 </td>

@@ -33,13 +33,13 @@
     --radius-full: 9999px;
 }
 
-/* Dark Theme Variables Override */
+/* Dark Theme Variables Override (Strict Graphite #252736 / Black elements) */
 .dark-theme {
-    --bg-primary: #000000;
-    --bg-secondary: #0b0c10;
-    --bg-card: rgba(18, 18, 24, 0.6);
-    --bg-card-hover: rgba(26, 26, 34, 0.85);
-    --bg-input: rgba(10, 10, 14, 0.8);
+    --bg-primary: #252736; /* Базовый фон - темно-серый/графитовый */
+    --bg-secondary: #1a1b26; /* Более темный для контраста (боковые панели, меню) */
+    --bg-card: rgba(26, 27, 38, 0.65);
+    --bg-card-hover: rgba(36, 37, 52, 0.85);
+    --bg-input: #12131a; /* Темный монохромный для инпутов */
     
     --accent-violet: #7e52ff;
     --accent-violet-glow: rgba(126, 82, 255, 0.35);
@@ -75,7 +75,24 @@ body {
     transition: background-color var(--transition-smooth), color var(--transition-smooth);
 }
 
-/* Background Glowing Blurs (subtle in light mode, prominent in dark) */
+/* Lucide Icon Styling */
+svg[data-lucide], .lucide {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2px;
+    vertical-align: middle;
+    display: inline-block;
+    transition: stroke var(--transition-fast);
+}
+
+.logo-icon {
+    width: 24px !important;
+    height: 24px !important;
+    stroke-width: 2.5px;
+    color: var(--accent-violet);
+}
+
+/* Background Glowing Blurs */
 .glow-spot {
     position: absolute;
     width: 600px;
@@ -84,12 +101,12 @@ body {
     filter: blur(150px);
     pointer-events: none;
     z-index: 0;
-    opacity: 0.06;
+    opacity: 0.04;
     transition: opacity var(--transition-smooth);
 }
 
 .dark-theme .glow-spot {
-    opacity: 0.15;
+    opacity: 0.12;
 }
 
 .glow-spot-1 {
@@ -137,7 +154,7 @@ body {
     z-index: 1;
 }
 
-/* Header UI - Strict Minimalist */
+/* Header UI - Minimalist */
 header {
     display: flex;
     justify-content: space-between;
@@ -150,13 +167,12 @@ header {
 .logo {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.6rem;
     text-decoration: none;
     font-size: 1.5rem;
     font-weight: 800;
     color: var(--text-primary);
     letter-spacing: -0.75px;
-    transition: var(--transition-fast);
 }
 
 .logo span {
@@ -174,7 +190,7 @@ header {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
     padding: 0.65rem 1.25rem;
     border-radius: var(--radius-md);
     font-size: 0.9rem;
@@ -184,6 +200,12 @@ header {
     outline: none;
     transition: var(--transition-smooth);
     text-decoration: none;
+    user-select: none;
+}
+
+.btn svg, .btn .lucide {
+    width: 15px !important;
+    height: 15px !important;
 }
 
 .btn-primary {
@@ -230,6 +252,12 @@ header {
 
 .btn-danger:hover {
     background-color: rgba(239, 68, 68, 0.15);
+}
+
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 .user-profile-btn {
@@ -348,6 +376,12 @@ header {
     background-color: var(--border-color);
 }
 
+/* Input validation styles */
+.form-control.is-invalid {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+}
+
 /* District Multi-selector tag clouds */
 .district-selector {
     display: flex;
@@ -421,7 +455,7 @@ header {
     margin-bottom: 5rem;
 }
 
-/* Roommate Card Style - Minimalist / iOS 18 Glass */
+/* Card Style - Minimalist / iOS 18 Glass */
 .hata-card {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -492,6 +526,7 @@ header {
 
 .no-photo-icon {
     font-size: 1.8rem;
+    color: var(--accent-violet);
 }
 
 .gallery-nav {
@@ -838,7 +873,7 @@ header {
 .promo-opt-info {
     display: flex;
     flex-direction: column;
-    gap: 0.2rem;
+    gap: 0.2;
 }
 
 .promo-opt-title {

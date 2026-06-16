@@ -7,6 +7,8 @@ const DEFAULT_CONFIG = {
         promoWeek: 490,       // Топ на неделю (490 ₸)
         promoMonth: 590       // Топ на месяц (590 ₸)
     },
+    supabaseUrl: "https://your-project.supabase.co",
+    supabaseAnonKey: "your-anon-key",
     cities: {
         almaty: {
             name: "Алматы",
@@ -71,7 +73,7 @@ const DEFAULT_CONFIG = {
                 "мкр Астана",
                 "мкр Жана Орда",
                 "мкр Женис",
-                "mкр Жулдыз",
+                "мкр Жулдыз",
                 "мкр Кадыра Мырза-Али",
                 "мкр Кунаева",
                 "мкр Мясокомбинат",
@@ -92,7 +94,7 @@ const DEFAULT_CONFIG = {
         kostanay: { name: "Костанай", hasDistricts: false, districts: [] },
         petropavlovsk: { name: "Петропавловск", hasDistricts: false, districts: [] },
         kokshetau: { name: "Кокшетау", hasDistricts: false, districts: [] },
-        taldykorgan: { name: "Талдыкорган", hasDistricts: false, districts: [] },
+        taldykorgan: { name: "Tалдыкорган", hasDistricts: false, districts: [] },
         turkestan: { name: "Туркестан", hasDistricts: false, districts: [] },
         zhezkazgan: { name: "Жезказган", hasDistricts: false, districts: [] }
     }
@@ -107,10 +109,11 @@ function loadConfig() {
     }
     try {
         const parsed = JSON.parse(savedConfig);
-        // Clean up or merge in case config keys have changed
-        if (!parsed.cities || !parsed.cities.uralsk || !parsed.cities.pavlodar) {
-            localStorage.setItem('hata_config', JSON.stringify(DEFAULT_CONFIG));
-            return DEFAULT_CONFIG;
+        // Ensure keys exist
+        if (!parsed.supabaseUrl) {
+            parsed.supabaseUrl = DEFAULT_CONFIG.supabaseUrl;
+            parsed.supabaseAnonKey = DEFAULT_CONFIG.supabaseAnonKey;
+            localStorage.setItem('hata_config', JSON.stringify(parsed));
         }
         return parsed;
     } catch (e) {

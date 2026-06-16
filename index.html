@@ -3,125 +3,425 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hata.kz | Аренда и покупка недвижимости в Казахстане</title>
-    <meta name="description" content="Hata.kz — современный сервис для поиска, аренды и покупки квартир, домов и коммерческой недвижимости в Казахстане. Найти жилье просто.">
+    <title>Hata.kz | Поиск сожителей и жилья для студентов</title>
+    <meta name="description" content="Hata.kz — P2P платформа для совместной аренды квартир и поиска сожителей среди студентов в Казахстане. Без риелторов, бесплатно и удобно.">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Background glows -->
-    <div class="glow-bg"></div>
-    <div class="glow-bg-2"></div>
+    <!-- Radial ambient glows -->
+    <div class="glow-spot glow-spot-1"></div>
+    <div class="glow-spot glow-spot-2"></div>
+    <div class="glow-spot glow-spot-3"></div>
 
-    <!-- Header Navigation -->
-    <header>
-        <a href="#" class="logo-container" id="logoLink">
-            <span class="logo-icon">🏠</span>
-            <span class="logo-text">Hata<span>.kz</span></span>
-        </a>
-        <nav>
-            <ul>
-                <li><a href="#" class="active" id="navRent">Аренда</a></li>
-                <li><a href="#" id="navBuy">Покупка</a></li>
-                <li><a href="#" id="navNew">Новостройки</a></li>
-                <li><a href="#" id="navCommercial">Коммерческая</a></li>
-            </ul>
-        </nav>
-        <div class="header-actions">
-            <a href="#" class="btn btn-secondary" id="btnLogin">Войти</a>
-            <a href="#" class="btn btn-primary" id="btnPost">Разместить объявление</a>
-        </div>
-    </header>
-
-    <!-- Hero Section -->
-    <main>
-        <section class="hero">
-            <div class="hero-badge">
-                <span>✨</span> Новый способ найти жилье в Казахстане
+    <div class="app-container">
+        <!-- Header -->
+        <header>
+            <a href="#" class="logo" id="logoLink">
+                <span>🏠</span> Hata<span>.kz</span>
+            </a>
+            <div class="nav-actions">
+                <!-- Admin shortcut (only visible or enabled for quick testing) -->
+                <button class="btn btn-secondary" id="adminPanelBtn" style="font-size: 0.85rem; padding: 0.5rem 1rem;">👑 Админка</button>
+                
+                <!-- Auth status container -->
+                <div id="authContainer">
+                    <button class="btn btn-primary" id="loginBtn">Войти</button>
+                </div>
             </div>
-            <h1>Найдите свой идеальный <span>дом</span></h1>
-            <p>Тысячи проверенных объявлений об аренде и продаже квартир, домов и офисов во всех городах Казахстана.</p>
+        </header>
 
-            <!-- Search Form / Filters -->
-            <div class="search-container">
-                <div class="search-field">
-                    <label for="citySelect">Город</label>
-                    <select id="citySelect">
+        <!-- Category Toggle -->
+        <div class="category-toggle">
+            <div class="toggle-option active" id="tabNeedRoom" data-category="need_room">Мне нужна комната</div>
+            <div class="toggle-option" id="tabHaveRoom" data-category="have_room">Сдаю комнату / Подселение</div>
+        </div>
+
+        <!-- Filters Section -->
+        <section class="filter-card">
+            <div class="filter-grid">
+                <!-- City Selector -->
+                <div class="filter-group">
+                    <label for="filterCity">Город</label>
+                    <select id="filterCity" class="form-control">
                         <option value="almaty">Алматы</option>
                         <option value="astana">Астана</option>
                         <option value="shymkent">Шымкент</option>
                         <option value="karaganda">Караганда</option>
-                        <option value="aktobe">Актобе</option>
                     </select>
                 </div>
-                <div class="search-field">
-                    <label for="typeSelect">Тип жилья</label>
-                    <select id="typeSelect">
-                        <option value="flat">Квартира</option>
-                        <option value="house">Дом / Коттедж</option>
-                        <option value="office">Офис / Коммерция</option>
-                        <option value="room">Комната</option>
-                    </select>
-                </div>
-                <div class="search-field">
-                    <label for="priceInput">Бюджет (₸)</label>
-                    <select id="priceInput">
+
+                <!-- Budget Filter -->
+                <div class="filter-group">
+                    <label for="filterBudgetMax">Бюджет до (₸)</label>
+                    <select id="filterBudgetMax" class="form-control">
                         <option value="any">Любой</option>
-                        <option value="100k">До 100 000 ₸ / мес</option>
-                        <option value="200k">До 200 000 ₸ / мес</option>
-                        <option value="500k">До 500 000 ₸ / мес</option>
-                        <option value="500kplus">Более 500 000 ₸ / мес</option>
+                        <option value="40000">до 40 000 ₸</option>
+                        <option value="60000">до 60 000 ₸</option>
+                        <option value="80000">до 80 000 ₸</option>
+                        <option value="100000">до 100 000 ₸</option>
+                        <option value="150000">до 150 000 ₸</option>
                     </select>
                 </div>
-                <button class="search-btn" id="searchBtn">
-                    <span>🔍</span> Найти
-                </button>
+
+                <!-- Gender Filter -->
+                <div class="filter-group">
+                    <label for="filterGender">Пол сожителя</label>
+                    <select id="filterGender" class="form-control">
+                        <option value="any">Не важно</option>
+                        <option value="male">Парни</option>
+                        <option value="female">Девочки</option>
+                    </select>
+                </div>
+
+                <!-- Room Count Filter -->
+                <div class="filter-group">
+                    <label for="filterRooms">Комнатность</label>
+                    <select id="filterRooms" class="form-control">
+                        <option value="any">Не важно</option>
+                        <option value="1">1-комнатная</option>
+                        <option value="2">2-комнатная</option>
+                        <option value="3">3-комнатная</option>
+                        <option value="4plus">4+ комнатные</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Districts Multi-select -->
+            <div class="filter-group">
+                <label style="margin-bottom: 0.5rem; display: block;">Выберите районы (можно несколько)</label>
+                <div id="filterDistrictsContainer" class="district-selector">
+                    <!-- Loaded dynamically via js -->
+                </div>
             </div>
         </section>
 
-        <!-- Categories Section -->
-        <section class="categories">
-            <div class="section-title">
-                <h2>Быстрый поиск по категориям</h2>
-                <p>Выберите интересующий тип недвижимости для просмотра активных объявлений</p>
+        <!-- User Profile listings panel (Hidden when not logged in) -->
+        <section class="profile-panel" id="userProfilePanel" style="display: none;">
+            <div class="profile-header">
+                <h3>🙋‍♂️ Ваши объявления (Личный кабинет)</h3>
+                <button class="btn btn-lime" id="createListingBtn">+ Создать объявление</button>
             </div>
-            <div class="category-grid">
-                <a href="#" class="category-card" id="catFlats">
-                    <span class="category-icon">🏢</span>
-                    <h3>Квартиры</h3>
-                    <p>Более 12,400 вариантов</p>
-                </a>
-                <a href="#" class="category-card" id="catHouses">
-                    <span class="category-icon">🏡</span>
-                    <h3>Дома и коттеджи</h3>
-                    <p>Более 3,200 вариантов</p>
-                </a>
-                <a href="#" class="category-card" id="catOffices">
-                    <span class="category-icon">💼</span>
-                    <h3>Офисы и бизнес</h3>
-                    <p>Более 1,800 вариантов</p>
-                </a>
-                <a href="#" class="category-card" id="catDaily">
-                    <span class="category-icon">🔑</span>
-                    <h3>Посуточно</h3>
-                    <p>Более 4,500 вариантов</p>
-                </a>
+            <div class="user-listings-list" id="userListingsContainer">
+                <!-- Loaded dynamically -->
             </div>
         </section>
-    </main>
 
-    <!-- Footer -->
-    <footer>
-        <div class="footer-content">
-            <div class="footer-text">
-                &copy; 2026 Hata.kz. Все права защищены. Разработано с заботой о пользователях.
+        <!-- Active Listings Grid -->
+        <section class="listings-section">
+            <div class="listings-header">
+                <h2>Свежие предложения</h2>
+                <div class="listings-count"><span id="listingsCount">0</span> объявлений</div>
             </div>
-            <div class="socials">
-                <a href="#" id="socialTg" aria-label="Telegram">Telegram</a>
-                <a href="#" id="socialInst" aria-label="Instagram">Instagram</a>
+
+            <div class="listings-grid" id="listingsGrid">
+                <!-- Rendered dynamically -->
+            </div>
+        </section>
+    </div>
+
+    <!-- GOOGLE LOGIN MODAL -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>Вход на Hata.kz</h2>
+                <button class="modal-close" onclick="closeModal('loginModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="google-auth-box">
+                    <p class="text-secondary" style="font-size: 0.9rem;">Выберите демо-аккаунт Google для быстрого входа без SMS-кодов:</p>
+                    <button class="google-btn" onclick="mockGoogleLogin('user-mock-1')">
+                        <img class="user-avatar" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop" alt="">
+                        <span>Аружан (Студент)</span>
+                    </button>
+                    <button class="google-btn" onclick="mockGoogleLogin('user-mock-2')">
+                        <img class="user-avatar" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop" alt="">
+                        <span>Данияр (Работает)</span>
+                    </button>
+                    <button class="google-btn" onclick="mockGoogleLogin('user-mock-3')">
+                        <img class="user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop" alt="">
+                        <span>Камила (Выпускница)</span>
+                    </button>
+                    <button class="google-btn" onclick="mockGoogleLogin('admin-user')">
+                        <span class="user-avatar" style="display:flex; align-items:center; justify-content:center; background:#7e52ff; font-weight:bold;">A</span>
+                        <span>Администратор Hata</span>
+                    </button>
+                </div>
             </div>
         </div>
-    </footer>
+    </div>
 
+    <!-- CREATE/EDIT LISTING MODAL -->
+    <div class="modal-overlay" id="listingModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="listingModalTitle">Создать объявление</h2>
+                <button class="modal-close" onclick="closeModal('listingModal')">&times;</button>
+            </div>
+            <form id="listingForm" onsubmit="handleListingSubmit(event)">
+                <input type="hidden" id="formListingId" value="">
+                <input type="hidden" id="formCategory" value="need_room">
+                
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <!-- Budget -->
+                        <div class="filter-group">
+                            <label for="formBudget" id="formBudgetLabel">Бюджет (₸/мес) *</label>
+                            <input type="number" id="formBudget" class="form-control" placeholder="Например: 60000" required>
+                        </div>
+                        
+                        <!-- Age -->
+                        <div class="filter-group">
+                            <label for="formAge">Ваш возраст *</label>
+                            <input type="number" id="formAge" class="form-control" placeholder="Возраст" min="16" max="99" required>
+                        </div>
+
+                        <!-- City -->
+                        <div class="filter-group">
+                            <label for="formCity">Город *</label>
+                            <select id="formCity" class="form-control" onchange="updateFormDistricts()">
+                                <option value="almaty">Алматы</option>
+                                <option value="astana">Астана</option>
+                                <option value="shymkent">Шымкент</option>
+                                <option value="karaganda">Караганда</option>
+                            </select>
+                        </div>
+
+                        <!-- Gender -->
+                        <div class="filter-group">
+                            <label for="formGender" id="formGenderLabel">Ваш пол *</label>
+                            <select id="formGender" class="form-control">
+                                <option value="male">Парень</option>
+                                <option value="female">Девушка</option>
+                            </select>
+                        </div>
+
+                        <!-- Occupation -->
+                        <div class="filter-group">
+                            <label for="formOccupation">Род деятельности *</label>
+                            <select id="formOccupation" class="form-control">
+                                <option value="student">Учусь</option>
+                                <option value="student_work">Учусь и работаю</option>
+                                <option value="work">Работаю</option>
+                                <option value="none">Не учусь и не работаю</option>
+                            </select>
+                        </div>
+
+                        <!-- Phone/WhatsApp -->
+                        <div class="filter-group">
+                            <label for="formWhatsapp">Номер телефона (WhatsApp) *</label>
+                            <div style="position:relative;">
+                                <span style="position:absolute; left:12px; top:10px; font-weight:700; color:var(--text-secondary);">+7</span>
+                                <input type="tel" id="formWhatsapp" class="form-control" style="padding-left:36px;" placeholder="7771234567" pattern="[0-9]{10}" title="Введите 10 цифр номера начиная с 7" required>
+                            </div>
+                            <span style="font-size:0.75rem; color:var(--text-muted);">Без скобок и дефисов. Предложения автозаполнения выходят при фокусе.</span>
+                        </div>
+
+                        <!-- Room Count -->
+                        <div class="filter-group">
+                            <label for="formRoomCount">Комнат в квартире *</label>
+                            <select id="formRoomCount" class="form-control">
+                                <option value="any">Не важно</option>
+                                <option value="1">1-комнатная</option>
+                                <option value="2">2-комнатная</option>
+                                <option value="3">3-комнатная</option>
+                                <option value="4">4-комнатная</option>
+                                <option value="5">5-комнатная</option>
+                            </select>
+                        </div>
+
+                        <!-- Roommates count -->
+                        <div class="filter-group">
+                            <label for="formRoommateCount" id="formRoommateLabel">Сколько сожителей *</label>
+                            <select id="formRoommateCount" class="form-control">
+                                <option value="any">Не важно</option>
+                                <option value="1">1 человек</option>
+                                <option value="2">2 человека</option>
+                                <option value="3">3 человека</option>
+                                <option value="4">4 человека</option>
+                            </select>
+                        </div>
+
+                        <!-- Have Room Specific Section (Hidden on need_room) -->
+                        <div class="form-full form-grid" id="haveRoomDetails" style="display:none; grid-template-columns: 1fr 1fr; margin-bottom: 0; padding: 0;">
+                            <!-- Address -->
+                            <div class="filter-group">
+                                <label for="formAddress">Адрес квартиры *</label>
+                                <input type="text" id="formAddress" class="form-control" placeholder="пр. Аль-Фараби 77">
+                            </div>
+
+                            <!-- 2GIS Map URL -->
+                            <div class="filter-group">
+                                <label for="formGisLink">Ссылка на адрес в 2GIS *</label>
+                                <input type="url" id="formGisLink" class="form-control" placeholder="https://2gis.kz/almaty/search/...">
+                            </div>
+
+                            <!-- Deposit -->
+                            <div class="filter-group">
+                                <label for="formDeposit">Депозит *</label>
+                                <select id="formDeposit" class="form-control">
+                                    <option value="false">Нет депозита</option>
+                                    <option value="true">Есть депозит</option>
+                                </select>
+                            </div>
+
+                            <!-- Contract -->
+                            <div class="filter-group">
+                                <label for="formContract">Наличие договора *</label>
+                                <select id="formContract" class="form-control">
+                                    <option value="false">Без договора</option>
+                                    <option value="true">С договором</option>
+                                    <option value="any">Не важно</option>
+                                </select>
+                            </div>
+
+                            <!-- Photo uploads inputs (minimum 3, maximum 6) -->
+                            <div class="filter-group form-full">
+                                <label>Фотографии квартиры (минимум 3, максимум 6)</label>
+                                <div class="image-previews-container" id="photoPreviews">
+                                    <!-- Dynamic preview boxes -->
+                                </div>
+                                <span style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem; display:block;">Нажмите на плюс, чтобы добавить ссылки на фото (автозагрузка заглушек для демо).</span>
+                            </div>
+                        </div>
+
+                        <!-- Districts Multiple Tag Selection -->
+                        <div class="filter-group form-full">
+                            <label>Районы жилья (Выберите один или несколько) *</label>
+                            <div id="formDistrictsContainer" class="district-selector" style="max-height: 150px;">
+                                <!-- districts tags list loaded dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="filter-group form-full">
+                            <label for="formDescription">Описание *</label>
+                            <textarea id="formDescription" class="form-control" rows="4" style="resize:none;" placeholder="Расскажите о себе, бытовых привычках или о квартире подробнее..." required></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('listingModal')">Отмена</button>
+                    <button type="submit" class="btn btn-lime" id="formSubmitBtn">Опубликовать (0 ₸)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- PROMOTION BOOST MODAL -->
+    <div class="modal-overlay" id="promoModal">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h2>Продвижение объявления (ТОП)</h2>
+                <button class="modal-close" onclick="closeModal('promoModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="promoListingId" value="">
+                <p class="text-secondary" style="font-size: 0.9rem; margin-bottom: 1.5rem;">
+                    Выделите ваше объявление! Продвинутые объявления показываются первыми в списке с яркой подсветкой и неоновым бейджем "В ТОПЕ".
+                </p>
+                <div class="promo-options">
+                    <div class="promo-option selected" id="opt3Days" onclick="selectPromoOption('opt3Days', 3)">
+                        <div class="promo-opt-info">
+                            <span class="promo-opt-title">3 дня в топе</span>
+                            <span class="promo-opt-desc">Быстрый поиск сожителей</span>
+                        </div>
+                        <span class="promo-opt-price" id="priceLabel3Days">190 ₸</span>
+                    </div>
+
+                    <div class="promo-option" id="optWeek" onclick="selectPromoOption('optWeek', 7)">
+                        <div class="promo-opt-info">
+                            <span class="promo-opt-title">1 неделя в топе</span>
+                            <span class="promo-opt-desc">Рекомендуемый пакет</span>
+                        </div>
+                        <span class="promo-opt-price" id="priceLabelWeek">490 ₸</span>
+                    </div>
+
+                    <div class="promo-option" id="optMonth" onclick="selectPromoOption('optMonth', 30)">
+                        <div class="promo-opt-info">
+                            <span class="promo-opt-title">1 месяц в топе</span>
+                            <span class="promo-opt-desc">Максимальный охват (+5 дней в подарок)</span>
+                        </div>
+                        <span class="promo-opt-price" id="priceLabelMonth">590 ₸</span>
+                    </div>
+                </div>
+
+                <!-- Kaspi QR payment simulation -->
+                <div id="paymentBlock" style="margin-top:2rem; text-align:center; padding:1.5rem; background:rgba(0,0,0,0.2); border-radius:var(--radius-md); border:1.5px solid var(--border-color);">
+                    <h3 style="margin-bottom:0.75rem; justify-content:center;">Оплата через Kaspi.kz</h3>
+                    <!-- Quick mockup QR code using styles -->
+                    <div style="width:120px; height:120px; margin:0 auto 1rem; background:white; padding:10px; display:flex; flex-wrap:wrap; border-radius:var(--radius-sm);">
+                        <!-- Fake QR look -->
+                        <div style="width:100%; height:100%; border:6px solid #f14635; display:flex; justify-content:center; align-items:center; font-weight:800; font-size:12px; color:#f14635;">Kaspi QR</div>
+                    </div>
+                    <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:1rem;">
+                        Откройте Kaspi.kz -> Сканировать QR код на экране для перевода <strong style="color:var(--accent-lime);" id="paySumLabel">190 ₸</strong>
+                    </p>
+                    <button class="btn btn-lime" onclick="processMockPayment()" style="width:100%;">Я оплатил (Симуляция оплаты)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADMIN PANEL MODAL -->
+    <div class="modal-overlay" id="adminModal">
+        <div class="modal-content" style="max-width: 850px;">
+            <div class="modal-header">
+                <h2>👑 Панель Администратора Hata.kz</h2>
+                <button class="modal-close" onclick="closeModal('adminModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="admin-grid">
+                    <!-- Left: settings configuration -->
+                    <div class="admin-sidebar">
+                        <h3>Настройки тарифов</h3>
+                        <div class="filter-group" style="margin-top: 1rem;">
+                            <label for="adminPostingFee">Плата за публикацию (₸)</label>
+                            <input type="number" id="adminPostingFee" class="form-control" value="0">
+                        </div>
+                        <div class="filter-group">
+                            <label for="adminPromo3Days">Топ на 3 дня (₸)</label>
+                            <input type="number" id="adminPromo3Days" class="form-control" value="190">
+                        </div>
+                        <div class="filter-group">
+                            <label for="adminPromoWeek">Топ на неделю (₸)</label>
+                            <input type="number" id="adminPromoWeek" class="form-control" value="490">
+                        </div>
+                        <div class="filter-group">
+                            <label for="adminPromoMonth">Топ на месяц (₸)</label>
+                            <input type="number" id="adminPromoMonth" class="form-control" value="590">
+                        </div>
+                        <button class="btn btn-lime" onclick="saveAdminSettings()" style="margin-top: 1rem;">Сохранить тарифы</button>
+                    </div>
+
+                    <!-- Right: list of listings for moderation -->
+                    <div class="admin-main">
+                        <h3>Модерация объявлений</h3>
+                        <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem;">
+                            <table style="width:100%; border-collapse:collapse; text-align:left; font-size:0.85rem;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid var(--border-color); color:var(--text-secondary);">
+                                        <th style="padding: 0.5rem;">Категория</th>
+                                        <th style="padding: 0.5rem;">Автор</th>
+                                        <th style="padding: 0.5rem;">Районы</th>
+                                        <th style="padding: 0.5rem;">Бюджет</th>
+                                        <th style="padding: 0.5rem; text-align:center;">Действие</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminModerationList">
+                                    <!-- Dynamic rows loaded via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dynamic scripts inclusion -->
+    <script src="config.js"></script>
+    <script src="db.js"></script>
     <script src="index.js"></script>
 </body>
 </html>

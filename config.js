@@ -7,8 +7,8 @@ const DEFAULT_CONFIG = {
         promoWeek: 490,       // Топ на неделю (490 ₸)
         promoMonth: 590       // Топ на месяц (590 ₸)
     },
-    supabaseUrl: "https://your-project.supabase.co",
-    supabaseAnonKey: "your-anon-key",
+    supabaseUrl: "https://lyzbgzxmevttepsdpsor.supabase.co", // Реальный URL проекта
+    supabaseAnonKey: "your-anon-key",                       // Сюда пользователь вставит свой реальный Anon Key через админку
     cities: {
         almaty: {
             name: "Алматы",
@@ -94,7 +94,7 @@ const DEFAULT_CONFIG = {
         kostanay: { name: "Костанай", hasDistricts: false, districts: [] },
         petropavlovsk: { name: "Петропавловск", hasDistricts: false, districts: [] },
         kokshetau: { name: "Кокшетау", hasDistricts: false, districts: [] },
-        taldykorgan: { name: "Tалдыкорган", hasDistricts: false, districts: [] },
+        taldykorgan: { name: "Талдыкорган", hasDistricts: false, districts: [] },
         turkestan: { name: "Туркестан", hasDistricts: false, districts: [] },
         zhezkazgan: { name: "Жезказган", hasDistricts: false, districts: [] }
     }
@@ -109,10 +109,10 @@ function loadConfig() {
     }
     try {
         const parsed = JSON.parse(savedConfig);
-        // Ensure keys exist
-        if (!parsed.supabaseUrl) {
+        
+        // Автоматическая миграция: если в localStorage старый URL-заглушка, обновляем на реальный
+        if (!parsed.supabaseUrl || parsed.supabaseUrl === "https://your-project.supabase.co") {
             parsed.supabaseUrl = DEFAULT_CONFIG.supabaseUrl;
-            parsed.supabaseAnonKey = DEFAULT_CONFIG.supabaseAnonKey;
             localStorage.setItem('hata_config', JSON.stringify(parsed));
         }
         return parsed;

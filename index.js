@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize UI triggers
     initTheme();
+    initNavigation();
     initCategoryTabs();
     initFilters();
     initAuth();
@@ -30,7 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Listeners for DB changes
     window.addEventListener('hata_listings_changed', () => {
-        renderListings();
+        if (currentActiveTab === 'feed') renderListings();
+        else if (currentActiveTab === 'favorites') renderFavorites();
+        
         renderUserProfile();
         renderAdminModerationList();
     });
@@ -65,31 +68,52 @@ window.closeModal = function(id) {
 // --- THEME MANAGEMENT ---
 function initTheme() {
     const themeBtn = document.getElementById('themeToggleBtn');
-    if (!themeBtn) return;
+    const themeBtnMobile = document.getElementById('themeToggleBtnMobile');
     
-    const savedTheme = localStorage.getItem('hata_theme') || 'light';
+    const savedTheme = localStorage.getItem('hata_theme') || 'dark';
     setTheme(savedTheme);
     
-    themeBtn.addEventListener('click', () => {
-        const isLight = document.body.classList.contains('light-theme');
-        const nextTheme = isLight ? 'dark' : 'light';
+    const handleToggle = () => {
+        const isDark = document.body.classList.contains('dark-theme');
+        const nextTheme = isDark ? 'light' : 'dark';
         setTheme(nextTheme);
-    });
+    };
+
+    if (themeBtn) themeBtn.addEventListener('click', handleToggle);
+    if (themeBtnMobile) themeBtnMobile.addEventListener('click', handleToggle);
 }
 
 function setTheme(theme) {
     const themeBtn = document.getElementById('themeToggleBtn');
+    const themeBtnMobile = document.getElementById('themeToggleBtnMobile');
+    
     if (theme === 'dark') {
         document.body.classList.remove('light-theme');
         document.body.classList.add('dark-theme');
         if (themeBtn) {
-            themeBtn.innerHTML = `<i data-lucide="sun" style="width: 14px; height: 14px; margin-right: 4px;"></i><span>Светлая</span>`;
+            const darkIcon = themeBtn.querySelector('.theme-icon-dark');
+            const lightIcon = themeBtn.querySelector('.theme-icon-light');
+            const themeTxt = themeBtn.querySelector('.theme-text');
+            if (darkIcon) darkIcon.style.display = 'none';
+            if (lightIcon) lightIcon.style.display = 'inline-block';
+            if (themeTxt) themeTxt.textContent = 'Светлая тема';
+        }
+        if (themeBtnMobile) {
+            themeBtnMobile.innerHTML = `<i data-lucide="sun"></i>`;
         }
     } else {
         document.body.classList.remove('dark-theme');
         document.body.classList.add('light-theme');
         if (themeBtn) {
-            themeBtn.innerHTML = `<i data-lucide="moon" style="width: 14px; height: 14px; margin-right: 4px;"></i><span>Темная</span>`;
+            const darkIcon = themeBtn.querySelector('.theme-icon-dark');
+            const lightIcon = themeBtn.querySelector('.theme-icon-light');
+            const themeTxt = themeBtn.querySelector('.theme-text');
+            if (darkIcon) darkIcon.style.display = 'inline-block';
+            if (lightIcon) lightIcon.style.display = 'none';
+            if (themeTxt) themeTxt.textContent = 'Темная тема';
+        }
+        if (themeBtnMobile) {
+            themeBtnMobile.innerHTML = `<i data-lucide="moon"></i>`;
         }
     }
     localStorage.setItem('hata_theme', theme);
@@ -132,17 +156,12 @@ function populateCitiesDropdowns() {
 
 // --- AUTHENTICATION & SUPABASE INTEGRATION ---
 function initAuth() {
-    const loginBtn = document.getElementById('loginBtn');
-    if (loginBtn) {
-        loginBtn.addEventListener('click', () => openModal('loginModal'));
-    }
-
     // Real Supabase Auth redirection trigger
     const googleRealLoginBtn = document.getElementById('googleRealLoginBtn');
     if (googleRealLoginBtn) {
         googleRealLoginBtn.addEventListener('click', async () => {
             if (window.location.protocol === 'file:') {
-                alert("Ошибка: Вы открыли проект напрямую через файл (file://). Google OAuth не поддерживает файлы. Запустите локальный сервер (команда npx http-server в терминале) и откройте сайт по адресу http://localhost:8080 для проверки входа.");
+                alert("Ошибка: Вы открыли проект напрямую через файл (file://). Google OAuth не поддерживает файлы. Запустите локальный сервер и откройте сайт по адресу http://localhost:3000 для проверки входа.");
                 return;
             }
             if (db.supabaseClient) {
@@ -156,77 +175,80 @@ function initAuth() {
                 });
                 if (error) alert("Ошибка авторизации Supabase: " + error.message);
             } else {
-                alert("Supabase не настроен в Панели Администратора. Используйте демо-вход ниже.");
+                alert("Supabase не настроен в Панели Администратора.");
             }
         });
     }
 
     updateAuthHeader();
-    renderUserProfile();
 }
 
 function updateAuthHeader() {
-    const container = document.getElementById('authContainer');
+    const desktopContainer = document.getElementById('authContainer');
+    const mobileContainer = document.getElementById('authContainerMobile');
     const user = db.getCurrentUser();
     
-    if (!container) return;
-    
     if (user) {
-        container.innerHTML = `
-            <div class="user-profile-btn" id="userMenuBtn">
-                <img class="user-avatar" src="${user.avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" alt="">
-                <span class="username">${user.name}</span>
-                <span style="font-size: 0.75rem; margin-left: 0.25rem;">▼</span>
-            </div>
-            <!-- Context dropdown -->
-            <div id="userMenuDropdown" style="display:none; position:absolute; right:1.5rem; top:5rem; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:var(--radius-md); overflow:hidden; box-shadow:var(--shadow-md); z-index:10;">
-                <button class="btn" style="background:transparent; color:var(--text-primary); text-align:left; border-radius:0; padding:0.75rem 1.5rem; font-size:0.85rem; width:100%; border:none;" onclick="logoutUser()">
-                    <i data-lucide="log-out" style="width:14px; height:14px; margin-right:4px;"></i>
-                    Выйти
-                </button>
-            </div>
-        `;
-        
-        const btn = document.getElementById('userMenuBtn');
-        const dropdown = document.getElementById('userMenuDropdown');
-        if (btn && dropdown) {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
-            });
-            document.addEventListener('click', () => {
-                dropdown.style.display = 'none';
-            });
+        // Desktop Sidebar layout
+        if (desktopContainer) {
+            desktopContainer.innerHTML = `
+                <div class="user-profile-badge">
+                    <div class="user-profile-info" onclick="switchTab('profile')" style="cursor:pointer;" title="Кабинет">
+                        <img src="${user.avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" alt="">
+                        <div class="name-email">
+                            <span class="user-name">${user.name}</span>
+                            <span class="user-email">${user.email}</span>
+                        </div>
+                    </div>
+                    <button class="logout-icon-btn" onclick="logoutUser()" title="Выйти">
+                        <i data-lucide="log-out" style="width:16px; height:16px;"></i>
+                    </button>
+                </div>
+            `;
         }
         
-        document.getElementById('userProfilePanel').style.display = 'block';
+        // Mobile Header layout
+        if (mobileContainer) {
+            mobileContainer.innerHTML = `
+                <img src="${user.avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" class="user-avatar" onclick="switchTab('profile')" style="cursor:pointer; width:34px; height:34px; border-radius:50%; object-fit:cover; border:2px solid var(--accent-violet);">
+            `;
+        }
+        
+        // Toggle Admin tabs visibility
+        const adminMenuOptions = document.querySelectorAll('.admin-only');
+        if (user.isAdmin) {
+            adminMenuOptions.forEach(opt => opt.style.display = 'flex');
+        } else {
+            adminMenuOptions.forEach(opt => opt.style.display = 'none');
+            if (currentActiveTab === 'admin') {
+                switchTab('feed');
+            }
+        }
     } else {
-        container.innerHTML = `<button class="btn btn-primary" id="loginBtn" onclick="openModal('loginModal')">Войти</button>`;
-        document.getElementById('userProfilePanel').style.display = 'none';
-    }
-}
-
-window.mockGoogleLogin = function(id) {
-    let user = {};
-    if (id === 'user-mock-1') {
-        user = { id: "user-mock-1", name: "Аружан", email: "aruzhan@gmail.com", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop", isAdmin: false };
-    } else if (id === 'user-mock-2') {
-        user = { id: "user-mock-2", name: "Данияр", email: "daniyar@gmail.com", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop", isAdmin: false };
-    } else if (id === 'user-mock-3') {
-        user = { id: "user-mock-3", name: "Камила", email: "kamila@gmail.com", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop", isAdmin: false };
-    } else {
-        user = { id: "admin-user", name: "Администратор Hata", email: "admin@hata.kz", avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop", isAdmin: true };
+        // Logged out states
+        if (desktopContainer) {
+            desktopContainer.innerHTML = `<button class="btn btn-primary" onclick="openModal('loginModal')" style="width:100%;">Войти</button>`;
+        }
+        if (mobileContainer) {
+            mobileContainer.innerHTML = `<button class="btn btn-primary" onclick="openModal('loginModal')" style="font-size:0.8rem; padding:0.4rem 0.8rem;">Войти</button>`;
+        }
+        
+        // Hide Admin tabs
+        document.querySelectorAll('.admin-only').forEach(opt => opt.style.display = 'none');
+        if (currentActiveTab === 'admin' || currentActiveTab === 'profile') {
+            switchTab('feed');
+        }
     }
     
-    db.login(user);
-    closeModal('loginModal');
-};
+    lucide.createIcons();
+}
 
 window.logoutUser = async function() {
     if (db.supabaseClient) {
         await db.supabaseClient.auth.signOut();
     }
     db.logout();
+    switchTab('feed');
 };
 
 // --- CATEGORY TABS ---
@@ -310,6 +332,30 @@ function initFilters() {
     
     if (filterGender) filterGender.addEventListener('change', () => { if (!filterHasErrors) renderListings(); });
     if (filterRooms) filterRooms.addEventListener('change', () => { if (!filterHasErrors) renderListings(); });
+
+    // Collapsible filter panel toggle
+    const filterToggleBtn = document.getElementById('filterToggleBtn');
+    const filterCard = document.getElementById('filterCard');
+    if (filterToggleBtn && filterCard) {
+        filterToggleBtn.addEventListener('click', () => {
+            const isHidden = filterCard.style.display === 'none' || filterCard.style.display === '';
+            if (isHidden) {
+                filterCard.style.display = 'block';
+                filterToggleBtn.classList.add('active');
+            } else {
+                filterCard.style.display = 'none';
+                filterToggleBtn.classList.remove('active');
+            }
+        });
+    }
+
+    // Global Search trigger
+    const globalSearchInput = document.getElementById('globalSearchInput');
+    if (globalSearchInput) {
+        globalSearchInput.addEventListener('input', () => {
+            if (!filterHasErrors) renderListings();
+        });
+    }
 }
 
 function validateFilterBudgetRange() {
@@ -404,10 +450,14 @@ function renderListings() {
     const genderFilter = document.getElementById('filterGender').value;
     const roomFilter = document.getElementById('filterRooms').value;
     
+    // Global search input
+    const searchInput = document.getElementById('globalSearchInput');
+    const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
     const cityInfo = HataConfig.cities[cityFilter];
     const cityHasDistricts = cityInfo ? cityInfo.hasDistricts : false;
 
-    // Filter listings matching current tab
+    // Filter listings matching current tab & filters
     let filtered = activeListings.filter(item => {
         if (item.category !== currentCategory) return false;
         if (item.city !== cityFilter) return false;
@@ -428,6 +478,15 @@ function renderListings() {
         if (cityHasDistricts && selectedFilterDistricts.size > 0) {
             const hasMatch = item.districts.some(dist => selectedFilterDistricts.has(dist));
             if (!hasMatch) return false;
+        }
+        
+        // Match search query
+        if (searchVal) {
+            const descMatch = item.description.toLowerCase().includes(searchVal);
+            const addrMatch = item.address && item.address.toLowerCase().includes(searchVal);
+            const distsMatch = item.districts && item.districts.some(d => d.toLowerCase().includes(searchVal));
+            const ownerMatch = item.ownerName.toLowerCase().includes(searchVal);
+            if (!descMatch && !addrMatch && !distsMatch && !ownerMatch) return false;
         }
         
         return true;
@@ -452,21 +511,32 @@ function renderListings() {
             <div class="empty-feed form-full">
                 <div class="empty-icon"><i data-lucide="search" style="width:48px; height:48px;"></i></div>
                 <div class="empty-title">Ничего не найдено</div>
-                <p>Попробуйте сбросить фильтры бюджета или изменить город.</p>
+                <p>Попробуйте сбросить фильтры или изменить поисковый запрос.</p>
             </div>
         `;
         lucide.createIcons();
         return;
     }
     
+    const user = db.getCurrentUser();
+    const favorites = user ? db.getFavorites(user.id) : [];
+
     grid.innerHTML = filtered.map(item => {
         const isBoosted = item.boostExpiredAt && new Date(item.boostExpiredAt).getTime() > now;
         const formattedDate = formatListingDate(item.createdAt);
         
+        const isFav = favorites.includes(item.id);
+        const heartButton = `
+            <button class="favorite-btn ${isFav ? 'active' : ''}" onclick="toggleFavoriteListing(event, '${item.id}')" title="В избранное">
+                <i data-lucide="heart"></i>
+            </button>
+        `;
+
         let carouselHTML = '';
         if (item.photos && item.photos.length > 0) {
             carouselHTML = `
                 <div class="card-gallery">
+                    ${heartButton}
                     <img class="card-img" src="${item.photos[0]}" alt="Квартира">
                     <div class="gallery-nav">
                         ${item.photos.map((_, i) => `<span class="gallery-dot ${i === 0 ? 'active' : ''}"></span>`).join('')}
@@ -476,6 +546,7 @@ function renderListings() {
         } else {
             carouselHTML = `
                 <div class="card-gallery">
+                    ${heartButton}
                     <div class="no-photo">
                         <i data-lucide="camera" class="no-photo-icon"></i>
                         <span>Без фотографий</span>
@@ -563,7 +634,21 @@ function renderUserProfile() {
     const container = document.getElementById('userListingsContainer');
     const user = db.getCurrentUser();
     
-    if (!container || !user) return;
+    const avatarEl = document.getElementById('cabinetUserAvatar');
+    const nameEl = document.getElementById('cabinetUserName');
+    const emailEl = document.getElementById('cabinetUserEmail');
+    
+    if (user) {
+        if (avatarEl) avatarEl.src = user.avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+        if (nameEl) nameEl.textContent = user.name;
+        if (emailEl) emailEl.textContent = user.email;
+    }
+    
+    if (!container) return;
+    if (!user) {
+        container.innerHTML = `<div style="text-align:center; padding: 2rem; color: var(--text-muted);">Пожалуйста, войдите в систему.</div>`;
+        return;
+    }
     
     const myListings = db.getUserListings(user.id);
     
@@ -1131,6 +1216,296 @@ function renderAdminModerationList() {
             </tr>
         `;
     }).join('');
+}
+
+// --- DYNAMIC VIEWPORT ROUTING / TABS NAVIGATION ---
+let currentActiveTab = 'feed';
+
+window.switchTab = function(tabId) {
+    const user = db.getCurrentUser();
+    
+    // Security check for admin page
+    if (tabId === 'admin') {
+        if (!user || !user.isAdmin) {
+            alert("Доступ запрещен. Эта страница доступна только администраторам.");
+            window.switchTab('feed');
+            return;
+        }
+    }
+
+    // "Создать пост" trigger behavior
+    if (tabId === 'create') {
+        if (!user) {
+            openModal('loginModal');
+        } else {
+            openModal('listingModal');
+        }
+        return;
+    }
+
+    currentActiveTab = tabId;
+
+    // Hide all page sections
+    document.querySelectorAll('.page-section').forEach(section => {
+        section.classList.remove('active');
+        section.style.display = 'none';
+    });
+
+    // Show active page section
+    const activeSection = document.getElementById(tabId + 'Page');
+    if (activeSection) {
+        activeSection.classList.add('active');
+        activeSection.style.display = 'block';
+    }
+
+    // Update active nav items in sidebar
+    document.querySelectorAll('.sidebar-nav .menu-item').forEach(item => {
+        if (item.getAttribute('data-tab') === tabId) {
+            item.classList.add('active');
+        } else {
+            item.classList.remove('active');
+        }
+    });
+
+    // Update active nav items in mobile bottom nav
+    document.querySelectorAll('.mobile-nav-bar .mobile-nav-item').forEach(item => {
+        if (item.getAttribute('data-tab') === tabId) {
+            item.classList.add('active');
+        } else {
+            item.classList.remove('active');
+        }
+    });
+
+    // Render page content
+    if (tabId === 'feed') {
+        renderListings();
+    } else if (tabId === 'favorites') {
+        renderFavorites();
+    } else if (tabId === 'profile') {
+        renderUserProfile();
+    } else if (tabId === 'admin') {
+        renderAdminModerationList();
+    }
+
+    lucide.createIcons();
+};
+
+function initNavigation() {
+    // Desktop sidebar click listeners
+    document.querySelectorAll('.sidebar-nav .menu-item[data-tab]').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const tab = item.getAttribute('data-tab');
+            window.switchTab(tab);
+        });
+    });
+
+    // Mobile bottom nav click listeners
+    document.querySelectorAll('.mobile-nav-bar .mobile-nav-item[data-tab]').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const tab = item.getAttribute('data-tab');
+            window.switchTab(tab);
+        });
+    });
+
+    // Sidebar create trigger
+    const sidebarCreateBtn = document.getElementById('sidebarCreateBtn');
+    if (sidebarCreateBtn) {
+        sidebarCreateBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.switchTab('create');
+        });
+    }
+
+    // Mobile create trigger
+    const mobileCreateBtn = document.getElementById('mobileCreateBtn');
+    if (mobileCreateBtn) {
+        mobileCreateBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.switchTab('create');
+        });
+    }
+
+    // Cabinet create triggers
+    const createListingBtnProfile = document.getElementById('createListingBtnProfile');
+    if (createListingBtnProfile) {
+        createListingBtnProfile.addEventListener('click', () => {
+            window.switchTab('create');
+        });
+    }
+}
+
+// --- FAVORITES CONTROLLER LOGIC ---
+window.toggleFavoriteListing = function(event, listingId) {
+    event.stopPropagation();
+    event.preventDefault();
+    
+    const user = db.getCurrentUser();
+    if (!user) {
+        openModal('loginModal');
+        return;
+    }
+    
+    const isFav = db.toggleFavorite(user.id, listingId);
+    const btn = event.currentTarget;
+    if (btn) {
+        if (isFav) {
+            btn.classList.add('active');
+            btn.style.transform = 'scale(1.25)';
+            setTimeout(() => { btn.style.transform = ''; }, 200);
+        } else {
+            btn.classList.remove('active');
+        }
+    }
+    
+    // Refresh feeds
+    if (currentActiveTab === 'feed') renderListings();
+    else if (currentActiveTab === 'favorites') renderFavorites();
+};
+
+function renderFavorites() {
+    const grid = document.getElementById('favoritesGrid');
+    const countSpan = document.getElementById('favoritesCount');
+    if (!grid) return;
+    
+    const user = db.getCurrentUser();
+    if (!user) {
+        grid.innerHTML = `
+            <div class="empty-feed form-full">
+                <div class="empty-icon"><i data-lucide="lock" style="width:48px; height:48px;"></i></div>
+                <div class="empty-title">Вход не выполнен</div>
+                <p>Войдите через Google, чтобы получить доступ к вашему списку избранного.</p>
+                <button class="btn btn-primary" onclick="openModal('loginModal')" style="margin: 1.5rem auto 0; display: block;">Войти в аккаунт</button>
+            </div>
+        `;
+        if (countSpan) countSpan.textContent = "0";
+        lucide.createIcons();
+        return;
+    }
+    
+    const favIds = db.getFavorites(user.id);
+    if (countSpan) countSpan.textContent = favIds.length;
+    
+    if (favIds.length === 0) {
+        grid.innerHTML = `
+            <div class="empty-feed form-full">
+                <div class="empty-icon"><i data-lucide="heart" style="width:48px; height:48px;"></i></div>
+                <div class="empty-title">В избранном пусто</div>
+                <p>Нажмите на сердечко на карточках в ленте, чтобы добавить объявления сюда.</p>
+            </div>
+        `;
+        lucide.createIcons();
+        return;
+    }
+    
+    const activeListings = db.getListings();
+    const filtered = activeListings.filter(item => favIds.includes(item.id));
+    
+    if (filtered.length === 0) {
+        grid.innerHTML = `
+            <div class="empty-feed form-full">
+                <div class="empty-icon"><i data-lucide="heart" style="width:48px; height:48px;"></i></div>
+                <div class="empty-title">В избранном пусто</div>
+                <p>Все ранее добавленные объявления были перемещены в архив.</p>
+            </div>
+        `;
+        lucide.createIcons();
+        return;
+    }
+    
+    const now = new Date().getTime();
+    grid.innerHTML = filtered.map(item => {
+        const isBoosted = item.boostExpiredAt && new Date(item.boostExpiredAt).getTime() > now;
+        const formattedDate = formatListingDate(item.createdAt);
+        
+        const heartButton = `
+            <button class="favorite-btn active" onclick="toggleFavoriteListing(event, '${item.id}')" title="Убрать из избранного">
+                <i data-lucide="heart"></i>
+            </button>
+        `;
+
+        let carouselHTML = '';
+        if (item.photos && item.photos.length > 0) {
+            carouselHTML = `
+                <div class="card-gallery">
+                    ${heartButton}
+                    <img class="card-img" src="${item.photos[0]}" alt="Квартира">
+                    <div class="gallery-nav">
+                        ${item.photos.map((_, i) => `<span class="gallery-dot ${i === 0 ? 'active' : ''}"></span>`).join('')}
+                    </div>
+                </div>
+            `;
+        } else {
+            carouselHTML = `
+                <div class="card-gallery">
+                    ${heartButton}
+                    <div class="no-photo">
+                        <i data-lucide="camera" class="no-photo-icon"></i>
+                        <span>Без фотографий</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        let tagOccupation = '';
+        if (item.occupation === 'student') tagOccupation = 'Учеба';
+        else if (item.occupation === 'student_work') tagOccupation = 'Учеба + Работа';
+        else if (item.occupation === 'work') tagOccupation = 'Работает';
+        else tagOccupation = 'Не занят';
+
+        const genderLabel = item.gender === 'male' ? 'Парень' : 'Девушка';
+        
+        const distStr = item.districts && item.districts.length > 0
+            ? `<span class="card-tag accent"><i data-lucide="map-pin" style="width:10px; height:10px; margin-right:2px; vertical-align:middle;"></i>${item.districts.join(', ')}</span>`
+            : '';
+
+        const mapButton = (item.gisLink && item.category === 'have_room') 
+            ? `<a href="${item.gisLink}" target="_blank" class="btn btn-secondary"><i data-lucide="map"></i><span>В 2GIS</span></a>`
+            : '';
+            
+        const cleanPhone = item.whatsapp.startsWith('8') ? '7' + item.whatsapp.substring(1) : item.whatsapp;
+        const waLink = `https://wa.me/7${cleanPhone.replace(/^7/, '')}?text=Привет!%20Я%20насчет%20объявления%20на%20Hata.kz`;
+
+        return `
+            <div class="hata-card ${isBoosted ? 'promoted' : ''}">
+                ${isBoosted ? `<span class="promoted-tag">В ТОПЕ</span>` : ''}
+                ${carouselHTML}
+                <div class="card-body">
+                    <div class="card-top">
+                        <img class="owner-img" src="${item.ownerAvatar}" alt="">
+                        <div class="owner-meta">
+                            <span class="owner-name">${item.ownerName}</span>
+                            <span class="listing-date">${formattedDate}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card-title">${formatNumberWithSpaces(item.budget)} ₸ <span>/ мес</span></div>
+                    
+                    <div class="card-tags">
+                        <span class="card-tag accent">${genderLabel}, ${item.age} лет</span>
+                        <span class="card-tag">${tagOccupation}</span>
+                        <span class="card-tag">${item.roomCount} комн.</span>
+                        ${item.hasDeposit ? '<span class="card-tag accent">Депозит</span>' : ''}
+                        ${item.hasContract ? '<span class="card-tag">Договор</span>' : ''}
+                        ${distStr}
+                    </div>
+                    
+                    <p class="card-desc">${item.description}</p>
+                    
+                    <div class="card-footer">
+                        <a href="${waLink}" target="_blank" class="btn btn-primary" style="background:#25d366; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.25);">
+                            <i data-lucide="message-square"></i>
+                            <span>WhatsApp</span>
+                        </a>
+                        ${mapButton}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    lucide.createIcons();
 }
 
 // --- MOBILE ACCESS TUNNEL GUIDE ---

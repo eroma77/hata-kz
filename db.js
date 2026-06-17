@@ -1,141 +1,178 @@
-// Hata.kz Mock Database Layer
+// Hata.kz Database Layer
 
-// Mock listings to populate the platform initially (aligned with new config names)
-const MOCK_LISTINGS = [
-    {
-        id: "mock-1",
-        category: "have_room", // Будет отображаться во вкладке "Ищу квартиру"
-        ownerId: "user-mock-1",
-        ownerName: "Аружан",
-        ownerAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
-        budget: 70000,
-        age: 20,
-        city: "almaty",
-        districts: ["Бостандыкский район", "Алмалинский район"],
-        whatsapp: "7071234567",
-        gender: "female",
-        occupation: "student",
-        roomCount: 2,
-        roommateCount: 1,
-        description: "Привет! Сдаю комнату для студентки в уютной двухкомнатной квартире на пересечении Абая-Манаса. Квартира полностью меблирована, есть скоростной интернет, стиралка, микроволновка. Живу сама, учусь в КазНУ. Ищу чистоплотную, адекватную сожительницу без вредных привычек.",
-        photos: [
-            "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=600&h=400&fit=crop",
-            "https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=600&h=400&fit=crop",
-            "https://images.unsplash.com/photo-1484101403633-562f891dc89a?w=600&h=400&fit=crop"
-        ],
-        address: "пр. Абая 44, Алматы",
-        gisLink: "https://2gis.kz/almaty/search/Абая 44",
-        hasDeposit: false,
-        hasContract: true,
-        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-        boostExpiredAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(), // Boosted
-        status: "active"
-    },
-    {
-        id: "mock-2",
-        category: "need_room", // Будет отображаться во вкладке "Ищу человека на подселение"
-        ownerId: "user-mock-2",
-        ownerName: "Данияр",
-        ownerAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
-        budget: 55000,
-        age: 19,
-        city: "almaty",
-        districts: ["Ауэзовский район", "Бостандыкский район"],
-        whatsapp: "7778889900",
-        gender: "male",
-        occupation: "student_work",
-        roomCount: 1,
-        roommateCount: 2,
-        description: "Салам! Ищу комнату или подселение к парням. Бюджет до 60k. Сам учусь в МУИТ на 2 курсе и подрабатываю по вечерам. Не шумлю, уважаю чужое пространство. Могу заселиться хоть завтра. Было бы круто в районе Саина-Шаляпина.",
-        photos: [],
-        address: "",
-        gisLink: "",
-        hasDeposit: false,
-        hasContract: false,
-        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        boostExpiredAt: null,
-        status: "active"
-    },
-    {
-        id: "mock-3",
-        category: "have_room", // Будет отображаться во вкладке "Ищу квартиру"
-        ownerId: "user-mock-3",
-        ownerName: "Камила",
-        ownerAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop",
-        budget: 90000,
-        age: 21,
-        city: "astana",
-        districts: ["Есильский район"],
-        whatsapp: "7476543210",
-        gender: "female",
-        occupation: "work",
-        roomCount: 3,
-        roommateCount: 1,
-        description: "Сдаю комнату в 3-комнатной квартире на левом берегу (ЖК Времена Года). Комната изолированная, светлая, с большой кроватью. В квартире живем я и еще одна девушка (обе работаем). Ищем чистоплотную третью соседку. Без парней и тусовок дома.",
-        photos: [
-            "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=600&h=400&fit=crop",
-            "https://images.unsplash.com/photo-1598928506311-c55ded91a20c?w=600&h=400&fit=crop",
-            "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&h=400&fit=crop"
-        ],
-        address: "ул. Кабанбай батыра 48, Астана",
-        gisLink: "https://2gis.kz/astana/search/Кабанбай батыра 48",
-        hasDeposit: true,
-        hasContract: true,
-        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        boostExpiredAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // Boosted
-        status: "active"
-    },
-    {
-        id: "mock-4",
-        category: "need_room", // Будет отображаться во вкладке "Ищу человека на подселение"
-        ownerId: "user-mock-4",
-        ownerName: "Адиль",
-        ownerAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-        budget: 65000,
-        age: 22,
-        city: "astana",
-        districts: ["Алматинский район", "Сарыаркинский район"],
-        whatsapp: "7053334455",
-        gender: "male",
-        occupation: "student",
-        roomCount: 2,
-        roommateCount: 1,
-        description: "Ищу сожителя парня для совместного съема 2-комнатной квартиры на правом берегу в Астане. Бюджет 60-70к с каждого. Сам учусь в ЕНУ, 4 курс. Чистоплотный, спокойный, дома бываю редко. Квартиру можем поискать вместе.",
-        photos: [],
-        address: "",
-        gisLink: "",
-        hasDeposit: true,
-        hasContract: true,
-        createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-        boostExpiredAt: null,
-        status: "active"
-    },
-    {
-        id: "mock-5",
-        category: "need_room", // Будет отображаться во вкладке "Ищу человека на подселение"
-        ownerId: "user-mock-2",
-        ownerName: "Данияр",
-        ownerAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
-        budget: 85000,
-        age: 23,
-        city: "pavlodar",
-        districts: [],
-        whatsapp: "7778889900",
-        gender: "male",
-        occupation: "work",
-        roomCount: 2,
-        roommateCount: 1,
-        description: "Я студент, ищу сожителя в Павлодаре, снимаю хорошую двушку в центре. Оплата 85 тыс тг плюс коммуналка. Сам работаю инженером. Чистоплотный, без вредных привычек.",
-        photos: [],
-        address: "",
-        gisLink: "",
-        hasDeposit: false,
-        hasContract: true,
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        boostExpiredAt: null,
-        status: "active"
+function generateMockListings() {
+    const listings = [];
+    
+    const maleNames = ["Данияр", "Адиль", "Санжар", "Темирлан", "Нурдаулет", "Алихан", "Арман", "Ербол", "Ануар", "Жандос", "Амир", "Бахтияр", "Аслан", "Рустем", "Максат", "Султан", "Али", "Олжас", "Азамат", "Мадияр"];
+    const femaleNames = ["Аружан", "Камила", "Мадина", "Диана", "Асем", "Аиша", "Гульдана", "Дана", "Алия", "Фариза", "Жасмин", "Алина", "Зарина", "Динара", "Айгерим", "Сабина", "Аяулым", "Инжу", "Томирис", "Меруерт"];
+    
+    const maleAvatars = [
+        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
+        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
+        "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&h=100&fit=crop",
+        "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop",
+        "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&h=100&fit=crop",
+        "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=100&h=100&fit=crop",
+        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
+        "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&h=100&fit=crop"
+    ];
+
+    const femaleAvatars = [
+        "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
+        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop",
+        "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop",
+        "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&h=100&fit=crop",
+        "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&h=100&fit=crop",
+        "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=100&h=100&fit=crop",
+        "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=100&h=100&fit=crop",
+        "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=100&h=100&fit=crop"
+    ];
+
+    const roomPhotos = [
+        "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1484154218962-a197022b5858?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=600&h=400&fit=crop",
+        "https://images.unsplash.com/photo-1598928506311-c55ded91a20c?w=600&h=400&fit=crop"
+    ];
+
+    const occupations = ["student", "student_work", "work"];
+    const citiesList = ["almaty", "astana", "shymkent", "karaganda"];
+    const cityNames = {
+        almaty: "Алматы",
+        astana: "Астана",
+        shymkent: "Шымкент",
+        karaganda: "Караганда"
+    };
+
+    const districtsByCity = {
+        almaty: ["Бостандыкский район", "Алмалинский район", "Медеуский район", "Ауэзовский район"],
+        astana: ["Есильский район", "Алматинский район", "Сарыаркинский район", "Нуринский район"],
+        shymkent: ["Абайский район", "Аль-Фарабийский район", "Каратауский район"],
+        karaganda: ["Район имени Казыбек би", "Район Алихана Бокейханова"]
+    };
+
+    const haveRoomDescriptions = [
+        "Привет! Ищу сожителя в отдельную комнату. Квартира очень чистая, полностью меблирована. Я сам учусь и работаю, дома бываю в основном вечером. Ищу адекватного соседа.",
+        "Ищу чистоплотную девушку на подселение в 2-комнатную квартиру. Вторая комната моя, я тихая, уважаю личные границы. Вся бытовая техника в наличии.",
+        "Сдаю комнату на подселение. Живем вдвоем, ищем третьего человека в квартиру. Официальный договор аренды, депозит небольшой.",
+        "Ищу соседку в уютную комнату. Очень удобное расположение, рядом супермаркеты и остановки. Сама учусь на 3 курсе.",
+        "Сдаю комнату парню без вредных привычек. В квартире есть стиральная машина, высокоскоростной Wi-Fi, микроволновка. Чистота гарантирована.",
+        "Ищу сожителя в двухкомнатную квартиру. Снимаю давно, хозяева отличные, не беспокоят. Коммуналка пополам."
+    ];
+
+    const needRoomDescriptions = [
+        "Привет! Ищу сожителей для совместного съема квартиры. Бюджет гибкий, рассматриваю разные районы. Сам чистоплотный, не курю.",
+        "Ищу комнату или подселение к девочкам. Бюджет до 80 тысяч тенге. Учусь на дневном отделении, спокойная, аккуратная.",
+        "Ищу комнату в Алматы. Своевременную оплату гарантирую, уважаю личное пространство сожителей. Заселение желательно в ближайшее время.",
+        "Ищу парней, к которым можно подселиться. Бюджет до 70к. Спокойный, без вредных привычек, учусь в университете.",
+        "Срочно ищу комнату на подселение. Готова платить вовремя, чистоту и порядок обещаю. Рассматриваю левый берег.",
+        "Ищу сожителя, чтобы вместе найти и арендовать 2-комнатную квартиру в центре. Так выйдет намного выгоднее. Пишите в WhatsApp!"
+    ];
+
+    // Generate 30 for category "have_room"
+    for (let i = 1; i <= 30; i++) {
+        const gender = Math.random() > 0.5 ? "male" : "female";
+        const name = gender === "male" ? maleNames[i % maleNames.length] : femaleNames[i % femaleNames.length];
+        const avatar = gender === "male" ? maleAvatars[i % maleAvatars.length] : femaleAvatars[i % femaleAvatars.length];
+        const city = citiesList[i % citiesList.length];
+        const districts = districtsByCity[city];
+        const selectedDistricts = [districts[i % districts.length]];
+        if (districts.length > 1 && Math.random() > 0.5) {
+            selectedDistricts.push(districts[(i + 1) % districts.length]);
+        }
+        const budget = 60000 + (i * 7000) % 150000;
+        const age = 18 + (i % 6);
+        const occupation = occupations[i % occupations.length];
+        const roomCount = 1 + (i % 3);
+        const roommateCount = 1 + (i % 3);
+        const description = haveRoomDescriptions[i % haveRoomDescriptions.length] + ` Город ${cityNames[city]}, район ${selectedDistricts.join('/')}.`;
+        const phone = "7" + (700 + (i * 13) % 99) + String(1000000 + (i * 234567) % 8999999);
+        
+        const photos = [
+            roomPhotos[i % roomPhotos.length],
+            roomPhotos[(i + 1) % roomPhotos.length],
+            roomPhotos[(i + 2) % roomPhotos.length]
+        ];
+
+        listings.push({
+            id: `mock-have-${i}`,
+            category: "have_room",
+            ownerId: `user-gen-have-${i}`,
+            ownerName: name,
+            ownerAvatar: avatar,
+            budget: budget,
+            age: age,
+            city: city,
+            districts: selectedDistricts,
+            whatsapp: phone,
+            gender: gender,
+            occupation: occupation,
+            roomCount: roomCount,
+            roommateCount: roommateCount,
+            description: description,
+            photos: photos,
+            address: `ул. Достык ${10 + i}, ${cityNames[city]}`,
+            gisLink: `https://2gis.kz/${city}/search/Достык ${10 + i}`,
+            hasDeposit: i % 2 === 0,
+            hasContract: i % 3 !== 0,
+            createdAt: new Date(Date.now() - (i % 10) * 24 * 60 * 60 * 1000).toISOString(),
+            boostExpiredAt: i % 7 === 0 ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() : null,
+            status: "active"
+        });
     }
-];
+
+    // Generate 30 for category "need_room"
+    for (let i = 1; i <= 30; i++) {
+        const gender = Math.random() > 0.5 ? "male" : "female";
+        const name = gender === "male" ? maleNames[(i + 5) % maleNames.length] : femaleNames[(i + 5) % femaleNames.length];
+        const avatar = gender === "male" ? maleAvatars[(i + 3) % maleAvatars.length] : femaleAvatars[(i + 3) % femaleAvatars.length];
+        const city = citiesList[(i + 2) % citiesList.length];
+        const districts = districtsByCity[city];
+        const selectedDistricts = [districts[(i + 1) % districts.length]];
+        if (districts.length > 1 && Math.random() > 0.6) {
+            selectedDistricts.push(districts[(i + 2) % districts.length]);
+        }
+        const budget = 50000 + (i * 6000) % 100000;
+        const age = 18 + (i % 5);
+        const occupation = occupations[(i + 1) % occupations.length];
+        const roomCount = 1 + (i % 3);
+        const roommateCount = 1 + (i % 2);
+        const description = needRoomDescriptions[i % needRoomDescriptions.length] + ` Интересует ${cityNames[city]}.`;
+        const phone = "7" + (700 + (i * 17) % 99) + String(1000000 + (i * 123456) % 8999999);
+
+        listings.push({
+            id: `mock-need-${i}`,
+            category: "need_room",
+            ownerId: `user-gen-need-${i}`,
+            ownerName: name,
+            ownerAvatar: avatar,
+            budget: budget,
+            age: age,
+            city: city,
+            districts: selectedDistricts,
+            whatsapp: phone,
+            gender: gender,
+            occupation: occupation,
+            roomCount: roomCount,
+            roommateCount: roommateCount,
+            description: description,
+            photos: [],
+            address: "",
+            gisLink: "",
+            hasDeposit: false,
+            hasContract: false,
+            createdAt: new Date(Date.now() - (i % 8) * 24 * 60 * 60 * 1000).toISOString(),
+            boostExpiredAt: i % 8 === 0 ? new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString() : null,
+            status: "active"
+        });
+    }
+
+    return listings;
+}
 
 class HataDatabase {
     constructor() {
@@ -146,18 +183,12 @@ class HataDatabase {
     init() {
         // Initialize listings
         if (!localStorage.getItem('hata_listings')) {
-            localStorage.setItem('hata_listings', JSON.stringify(MOCK_LISTINGS));
+            localStorage.setItem('hata_listings', JSON.stringify(generateMockListings()));
         }
 
-        // Initialize users (empty or mock users)
+        // Initialize users (empty on start)
         if (!localStorage.getItem('hata_users')) {
-            const mockUsers = [
-                { id: "user-mock-1", name: "Аружан", email: "aruzhan@gmail.com", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop" },
-                { id: "user-mock-2", name: "Данияр", email: "daniyar@gmail.com", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop" },
-                { id: "user-mock-3", name: "Камила", email: "kamila@gmail.com", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop" },
-                { id: "user-mock-4", name: "Адиль", email: "adil@gmail.com", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop" }
-            ];
-            localStorage.setItem('hata_users', JSON.stringify(mockUsers));
+            localStorage.setItem('hata_users', JSON.stringify([]));
         }
 
         // Initialize Supabase Client if configured
@@ -184,12 +215,13 @@ class HataDatabase {
         if (!this.supabaseClient) return;
         this.supabaseClient.auth.onAuthStateChange((event, session) => {
             if (session && session.user) {
+                const config = HataConfig; // Loaded from config.js
                 const user = {
                     id: session.user.id,
                     name: session.user.user_metadata.full_name || session.user.email,
                     email: session.user.email,
                     avatar: session.user.user_metadata.avatar_url || '',
-                    isAdmin: session.user.email === 'admin@hata.kz'
+                    isAdmin: config.adminEmail ? session.user.email === config.adminEmail : session.user.email === 'admin@hata.kz'
                 };
                 localStorage.setItem('hata_current_user', JSON.stringify(user));
                 
@@ -213,22 +245,9 @@ class HataDatabase {
         return user ? JSON.parse(user) : null;
     }
 
-    // Login user (Google Auth mock fallback)
-    login(user, remember = true) {
-        const serialized = JSON.stringify(user);
-        if (remember) {
-            localStorage.setItem('hata_current_user', serialized);
-        } else {
-            sessionStorage.setItem('hata_current_user', serialized);
-        }
-        
-        const users = JSON.parse(localStorage.getItem('hata_users') || '[]');
-        if (!users.some(u => u.id === user.id)) {
-            users.push(user);
-            localStorage.setItem('hata_users', JSON.stringify(users));
-        }
-        
-        window.dispatchEvent(new Event('hata_auth_changed'));
+    // Stub login method (OAuth is used instead of mock login)
+    login(user) {
+        console.warn("Mock login has been disabled for safety. Use Supabase Google Auth.");
     }
 
     // Logout user
@@ -236,6 +255,31 @@ class HataDatabase {
         localStorage.removeItem('hata_current_user');
         sessionStorage.removeItem('hata_current_user');
         window.dispatchEvent(new Event('hata_auth_changed'));
+    }
+
+    // --- FAVORITES SYSTEM ---
+    toggleFavorite(userId, listingId) {
+        if (!userId) return false;
+        const key = `hata_favorites_${userId}`;
+        let favorites = JSON.parse(localStorage.getItem(key) || '[]');
+        const index = favorites.indexOf(listingId);
+        let isFavorite = false;
+        
+        if (index > -1) {
+            favorites.splice(index, 1);
+        } else {
+            favorites.push(listingId);
+            isFavorite = true;
+        }
+        
+        localStorage.setItem(key, JSON.stringify(favorites));
+        window.dispatchEvent(new Event('hata_listings_changed')); // Trigger feed update
+        return isFavorite;
+    }
+
+    getFavorites(userId) {
+        if (!userId) return [];
+        return JSON.parse(localStorage.getItem(`hata_favorites_${userId}`) || '[]');
     }
 
     // Get all active listings

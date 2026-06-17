@@ -39,6 +39,13 @@ app.get('/config.js', (req, res) => {
                 `supabaseRedirectUrl: "${process.env.SUPABASE_REDIRECT_URL}"`
             );
         }
+        if (process.env.ADMIN_EMAIL) {
+            console.log("Injecting ADMIN_EMAIL from environment...");
+            configContent = configContent.replace(
+                /adminEmail:\s*["'][^"']*["']/g,
+                `adminEmail: "${process.env.ADMIN_EMAIL}"`
+            );
+        }
 
         res.setHeader('Content-Type', 'application/javascript');
         res.send(configContent);

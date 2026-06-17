@@ -10,6 +10,7 @@ const DEFAULT_CONFIG = {
     supabaseUrl: "https://lyzbgzxmevttepsdpsor.supabase.co", // Реальный URL проекта
     supabaseAnonKey: "your-anon-key",                       // Сюда пользователь вставит свой реальный Anon Key через админку
     supabaseRedirectUrl: "",                                // URL перенаправления после авторизации (опционально)
+    adminEmail: "admin@hata.kz",                            // Email администратора (для назначения прав в продакшене)
     cities: {
         almaty: {
             name: "Алматы",
@@ -119,6 +120,10 @@ function loadConfig() {
         }
         if (parsed.supabaseRedirectUrl === undefined) {
             parsed.supabaseRedirectUrl = DEFAULT_CONFIG.supabaseRedirectUrl;
+            needsSave = true;
+        }
+        if (parsed.adminEmail === undefined) {
+            parsed.adminEmail = DEFAULT_CONFIG.adminEmail;
             needsSave = true;
         }
         if (needsSave) {

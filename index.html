@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Hata.kz | Поиск сожителей и жилья для студентов в Казахстане</title>
     <meta name="description" content="Hata.kz — современная минималистичная P2P платформа для поиска сожителей и жилья среди студентов в Казахстане. Напрямую, бесплатно и эффективно.">
     <!-- Lucide Icons and Supabase CDNs -->
@@ -10,158 +10,313 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="light-theme">
+<body class="dark-theme">
     <!-- Background glows -->
     <div class="glow-spot glow-spot-1"></div>
     <div class="glow-spot glow-spot-2"></div>
     <div class="glow-spot glow-spot-3"></div>
 
-    <div class="app-container">
-        <!-- Header -->
-        <header>
-            <a href="#" class="logo" id="logoLink">
-                <i data-lucide="home" class="logo-icon"></i> Hata<span>.kz</span>
-            </a>
-            <div class="nav-actions">
-                <!-- Theme Switcher -->
-                <button class="btn btn-secondary" id="themeToggleBtn" style="font-size: 0.85rem; padding: 0.5rem 1rem;">
-                    <i data-lucide="moon" style="width: 14px; height: 14px; margin-right: 4px;"></i>
-                    <span>Темная</span>
+    <div class="app-layout">
+        <!-- Sidebar Navigation (Desktop-only, hidden on mobile) -->
+        <aside class="sidebar-nav">
+            <div class="sidebar-logo" id="logoLink">
+                <i data-lucide="compass" class="logo-icon"></i>
+                HATA<span>.KZ</span>
+            </div>
+            
+            <nav class="sidebar-menu">
+                <a href="#" class="menu-item active" data-tab="feed">
+                    <i data-lucide="compass"></i>
+                    <span>Лента</span>
+                </a>
+                <a href="#" class="menu-item" data-tab="favorites">
+                    <i data-lucide="heart"></i>
+                    <span>Избранное</span>
+                </a>
+                <a href="#" class="menu-item" id="sidebarCreateBtn">
+                    <i data-lucide="plus-circle"></i>
+                    <span>Создать пост</span>
+                </a>
+                <a href="#" class="menu-item" data-tab="profile">
+                    <i data-lucide="user"></i>
+                    <span>Мой кабинет</span>
+                </a>
+                <a href="#" class="menu-item admin-only" data-tab="admin" style="display: none;" id="sidebarAdminBtn">
+                    <i data-lucide="shield"></i>
+                    <span>Панель админа</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button class="btn btn-secondary theme-toggle-btn" id="themeToggleBtn" style="width: 100%; justify-content: center; margin-bottom: 0.75rem;">
+                    <i data-lucide="moon" class="theme-icon-dark"></i>
+                    <i data-lucide="sun" class="theme-icon-light" style="display:none;"></i>
+                    <span class="theme-text">Темная тема</span>
                 </button>
-                
-                <!-- Admin shortcut -->
-                <button class="btn btn-secondary" id="adminPanelBtn" style="font-size: 0.85rem; padding: 0.5rem 1rem;">
-                    <i data-lucide="shield" style="width: 14px; height: 14px; margin-right: 4px;"></i>
-                    <span>Панель</span>
-                </button>
-                
-                <!-- Auth status container -->
                 <div id="authContainer">
-                    <button class="btn btn-primary" id="loginBtn">Войти</button>
+                    <!-- Dynamic User Profile indicator / Login Button loaded here -->
                 </div>
             </div>
-        </header>
+        </aside>
 
-        <!-- Category Toggle (Swapped: Search flat shows have_room, Find roommate shows need_room) -->
-        <div class="category-toggle">
-            <div class="toggle-option active" id="tabNeedRoom" data-category="have_room">Ищу квартиру</div>
-            <div class="toggle-option" id="tabHaveRoom" data-category="need_room">Ищу сожителя / На подселение</div>
-        </div>
+        <!-- Main Content Frame -->
+        <main class="main-content">
+            <!-- Top Header Bar -->
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <!-- Mobile Logo (visible on mobile only) -->
+                    <div class="mobile-logo">
+                        <i data-lucide="compass" class="logo-icon"></i>
+                        HATA<span>.KZ</span>
+                    </div>
 
-        <!-- Filters Section -->
-        <section class="filter-card">
-            <div class="filter-grid">
-                <!-- City Selector -->
-                <div class="filter-group">
-                    <label for="filterCity">Город</label>
-                    <select id="filterCity" class="form-control">
-                        <!-- Loaded dynamically via config.js -->
-                    </select>
+                    <!-- Global Search Box -->
+                    <div class="search-box">
+                        <i data-lucide="search" class="search-icon"></i>
+                        <input type="text" id="globalSearchInput" placeholder="Поиск сожителей, жилья...">
+                    </div>
+
+                    <!-- Slide Filters Toggle Button -->
+                    <button class="btn btn-secondary" id="filterToggleBtn">
+                        <i data-lucide="sliders-horizontal" style="width: 16px; height: 16px;"></i>
+                        <span>Фильтры</span>
+                    </button>
                 </div>
 
-                <!-- Budget Range (From / To) -->
-                <div class="filter-group">
-                    <label>Бюджет (₸)</label>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <input type="text" id="filterBudgetMin" class="form-control" placeholder="От 10 000">
-                        <input type="text" id="filterBudgetMax" class="form-control" placeholder="До 1 000 000">
+                <div class="top-bar-right">
+                    <!-- Category Switcher Pills -->
+                    <div class="category-toggle-pills">
+                        <button class="pill-option active" id="tabNeedRoom" data-category="have_room">Ищу квартиру</button>
+                        <button class="pill-option" id="tabHaveRoom" data-category="need_room">Ищу сожителя</button>
+                    </div>
+
+                    <!-- Mobile Theme Icon Button -->
+                    <button class="btn-icon mobile-theme-btn" id="themeToggleBtnMobile">
+                        <i data-lucide="moon"></i>
+                    </button>
+
+                    <!-- Mobile login/profile indicator wrapper -->
+                    <div id="authContainerMobile" class="mobile-auth-indicator">
+                        <!-- Loaded dynamically on mobile -->
+                    </div>
+                </div>
+            </header>
+
+            <!-- Collapsible Filters Section (Slide-down effect) -->
+            <section class="filter-card" id="filterCard" style="display: none;">
+                <div class="filter-grid">
+                    <!-- City Selector -->
+                    <div class="filter-group">
+                        <label for="filterCity">Город</label>
+                        <select id="filterCity" class="form-control">
+                            <!-- Loaded dynamically via config.js -->
+                        </select>
+                    </div>
+
+                    <!-- Budget Range (From / To) -->
+                    <div class="filter-group">
+                        <label>Бюджет (₸)</label>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <input type="text" id="filterBudgetMin" class="form-control" placeholder="От 10 000">
+                            <input type="text" id="filterBudgetMax" class="form-control" placeholder="До 1 000 000">
+                        </div>
+                    </div>
+
+                    <!-- Gender Filter -->
+                    <div class="filter-group">
+                        <label for="filterGender">Пол сожителя</label>
+                        <select id="filterGender" class="form-control">
+                            <option value="any">Не важно</option>
+                            <option value="male">Парни</option>
+                            <option value="female">Девочки</option>
+                        </select>
+                    </div>
+
+                    <!-- Room Count Filter -->
+                    <div class="filter-group">
+                        <label for="filterRooms">Комнатность</label>
+                        <select id="filterRooms" class="form-control">
+                            <option value="any">Не важно</option>
+                            <option value="1">1-комнатная</option>
+                            <option value="2">2-комнатная</option>
+                            <option value="3">3-комнатная</option>
+                            <option value="4plus">4+ комнатные</option>
+                        </select>
                     </div>
                 </div>
 
-                <!-- Gender Filter -->
-                <div class="filter-group">
-                    <label for="filterGender">Пол сожителя</label>
-                    <select id="filterGender" class="form-control">
-                        <option value="any">Не важно</option>
-                        <option value="male">Парни</option>
-                        <option value="female">Девочки</option>
-                    </select>
+                <!-- Districts Multi-select -->
+                <div class="filter-group" id="filterDistrictsWrapper" style="margin-top: 1rem;">
+                    <label style="margin-bottom: 0.5rem; display: block;" id="filterDistrictsLabel">Выберите районы (можно несколько) *</label>
+                    <div id="filterDistrictsContainer" class="district-selector">
+                        <!-- Loaded dynamically via JS -->
+                    </div>
                 </div>
+            </section>
 
-                <!-- Room Count Filter -->
-                <div class="filter-group">
-                    <label for="filterRooms">Комнатность</label>
-                    <select id="filterRooms" class="form-control">
-                        <option value="any">Не важно</option>
-                        <option value="1">1-комнатная</option>
-                        <option value="2">2-комнатная</option>
-                        <option value="3">3-комнатная</option>
-                        <option value="4plus">4+ комнатные</option>
-                    </select>
-                </div>
-            </div>
+            <!-- PAGE VIEWS SECTION -->
+            <div class="pages-container">
+                <!-- VIEW 1: FEED PAGE (Active by default) -->
+                <section class="page-section active" id="feedPage">
+                    <div class="listings-header">
+                        <h2>Свежие предложения</h2>
+                        <div class="listings-count"><span id="listingsCount">0</span> объявлений</div>
+                    </div>
+                    <div class="listings-grid" id="listingsGrid">
+                        <!-- Rendered dynamically -->
+                    </div>
+                </section>
 
-            <!-- Districts Multi-select -->
-            <div class="filter-group" id="filterDistrictsWrapper">
-                <label style="margin-bottom: 0.5rem; display: block;" id="filterDistrictsLabel">Выберите районы (можно несколько) *</label>
-                <div id="filterDistrictsContainer" class="district-selector">
-                    <!-- Loaded dynamically via js -->
-                </div>
-            </div>
-        </section>
+                <!-- VIEW 2: FAVORITES PAGE -->
+                <section class="page-section" id="favoritesPage" style="display: none;">
+                    <div class="listings-header">
+                        <h2>Избранные объявления</h2>
+                        <div class="listings-count"><span id="favoritesCount">0</span> в списке</div>
+                    </div>
+                    <div class="listings-grid" id="favoritesGrid">
+                        <!-- Rendered dynamically -->
+                    </div>
+                </section>
 
-        <!-- User Profile listings panel (Hidden when not logged in) -->
-        <section class="profile-panel" id="userProfilePanel" style="display: none;">
-            <div class="profile-header">
-                <h3>
-                    <i data-lucide="user" style="width: 18px; height: 18px; margin-right: 6px; vertical-align: middle;"></i>
-                    Ваши объявления (Кабинет)
-                </h3>
-                <button class="btn btn-lime" id="createListingBtn">
-                    <i data-lucide="plus" style="width: 14px; height: 14px; margin-right: 4px;"></i>
-                    Создать объявление
-                </button>
-            </div>
-            <div class="user-listings-list" id="userListingsContainer">
-                <!-- Loaded dynamically -->
-            </div>
-        </section>
+                <!-- VIEW 3: PROFILE / MY CABINET PAGE -->
+                <section class="page-section" id="profilePage" style="display: none;">
+                    <div class="profile-header-card">
+                        <div class="profile-info-header">
+                            <img class="profile-large-avatar" id="cabinetUserAvatar" src="https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" alt="">
+                            <div>
+                                <h2 id="cabinetUserName">Имя пользователя</h2>
+                                <span class="profile-email-badge" id="cabinetUserEmail">user@example.com</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-lime" id="createListingBtnProfile">
+                            <i data-lucide="plus" style="width: 14px; height: 14px; margin-right: 4px;"></i>
+                            Создать объявление
+                        </button>
+                    </div>
 
-        <!-- Active Listings Grid -->
-        <section class="listings-section">
-            <div class="listings-header">
-                <h2>Свежие предложения</h2>
-                <div class="listings-count"><span id="listingsCount">0</span> объявлений</div>
-            </div>
+                    <div class="user-listings-section" style="margin-top: 2rem;">
+                        <h3 class="section-title">Ваши публикации</h3>
+                        <div class="user-listings-list" id="userListingsContainer">
+                            <!-- Loaded dynamically -->
+                        </div>
+                    </div>
+                </section>
 
-            <div class="listings-grid" id="listingsGrid">
-                <!-- Rendered dynamically -->
+                <!-- VIEW 4: ADMIN PANEL PAGE (Hidden by default) -->
+                <section class="page-section" id="adminPage" style="display: none;">
+                    <div class="admin-page-title">
+                        <h2>
+                            <i data-lucide="shield" style="width: 22px; height: 22px; margin-right: 8px; vertical-align: middle;"></i>
+                            Панель Администратора
+                        </h2>
+                    </div>
+
+                    <div class="admin-grid" style="margin-top: 1.5rem;">
+                        <!-- Left: settings configuration -->
+                        <div class="admin-sidebar-card">
+                            <h3>Настройки тарифов</h3>
+                            <div class="filter-group" style="margin-top: 1rem;">
+                                <label for="adminPostingFee">Плата за публикацию (₸)</label>
+                                <input type="text" id="adminPostingFee" class="form-control" value="0">
+                            </div>
+                            <div class="filter-group">
+                                <label for="adminPromo3Days">Топ на 3 дня (₸)</label>
+                                <input type="text" id="adminPromo3Days" class="form-control" value="190">
+                            </div>
+                            <div class="filter-group">
+                                <label for="adminPromoWeek">Топ на неделю (₸)</label>
+                                <input type="text" id="adminPromoWeek" class="form-control" value="490">
+                            </div>
+                            <div class="filter-group">
+                                <label for="adminPromoMonth">Топ на месяц (₸)</label>
+                                <input type="text" id="adminPromoMonth" class="form-control" value="590">
+                            </div>
+                            
+                            <h3 style="margin-top: 1.5rem;">Настройки Supabase Auth</h3>
+                            <div class="filter-group">
+                                <label for="adminSupabaseUrl">Supabase URL</label>
+                                <input type="text" id="adminSupabaseUrl" class="form-control" placeholder="https://your-project.supabase.co">
+                            </div>
+                            <div class="filter-group">
+                                <label for="adminSupabaseAnonKey">Supabase Anon Key</label>
+                                <input type="text" id="adminSupabaseAnonKey" class="form-control" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+                            </div>
+                            <div class="filter-group">
+                                <label for="adminSupabaseRedirectUrl">Supabase Redirect URL (опционально)</label>
+                                <input type="text" id="adminSupabaseRedirectUrl" class="form-control" placeholder="https://hata-kz.onrender.com/">
+                                <span style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.25rem; display: block; line-height: 1.2;">
+                                    Оставьте пустым для автоматического определения.
+                                </span>
+                            </div>
+                            
+                            <button class="btn btn-lime" onclick="saveAdminSettings()" style="margin-top: 1rem; width: 100%;">Сохранить настройки</button>
+                        </div>
+
+                        <!-- Right: moderation list -->
+                        <div class="admin-moderation-card">
+                            <h3>Модерация объявлений</h3>
+                            <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem; margin-top: 1rem;">
+                                <table style="width:100%; border-collapse:collapse; text-align:left; font-size:0.85rem;">
+                                    <thead>
+                                        <tr style="border-bottom: 2px solid var(--border-color); color:var(--text-secondary);">
+                                            <th style="padding: 0.5rem;">Категория</th>
+                                            <th style="padding: 0.5rem;">Автор</th>
+                                            <th style="padding: 0.5rem;">Районы</th>
+                                            <th style="padding: 0.5rem;">Бюджет</th>
+                                            <th style="padding: 0.5rem; text-align:center;">Действие</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="adminModerationList">
+                                        <!-- Dynamic rows loaded via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
-        </section>
+        </main>
+
+        <!-- Sticky Bottom Navigation Bar (Mobile-only, hidden on desktop) -->
+        <nav class="mobile-nav-bar">
+            <div class="mobile-nav-item active" data-tab="feed">
+                <i data-lucide="compass"></i>
+                <span>Лента</span>
+            </div>
+            <div class="mobile-nav-item" data-tab="favorites">
+                <i data-lucide="heart"></i>
+                <span>Избранное</span>
+            </div>
+            <div class="mobile-nav-item" id="mobileCreateBtn">
+                <i data-lucide="plus-circle" style="color: var(--accent-violet);"></i>
+                <span>Создать</span>
+            </div>
+            <div class="mobile-nav-item" data-tab="profile">
+                <i data-lucide="user"></i>
+                <span>Кабинет</span>
+            </div>
+            <div class="mobile-nav-item admin-only" data-tab="admin" style="display: none;" id="mobileAdminBtn">
+                <i data-lucide="shield"></i>
+                <span>Админ</span>
+            </div>
+        </nav>
     </div>
 
-    <!-- GOOGLE LOGIN MODAL -->
+    <!-- REAL AUTH GOOGLE MODAL -->
     <div class="modal-overlay" id="loginModal">
-        <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-content" style="max-width: 400px; border-radius: var(--radius-md);">
             <div class="modal-header">
                 <h2>Вход на Hata.kz</h2>
                 <button class="modal-close" onclick="closeModal('loginModal')">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="google-auth-box">
-                    <p class="text-secondary" style="font-size: 0.9rem;">Используйте ваш Google-аккаунт для безопасного входа:</p>
-                    <button class="google-btn" id="googleRealLoginBtn" style="background-color: #4285F4; color: white; border: none; margin-bottom: 1rem;">
-                        <i data-lucide="log-in" style="width: 16px; height: 16px; margin-right: 8px;"></i>
+                <div class="google-auth-box" style="text-align: center; padding: 1.5rem 0 0.5rem;">
+                    <p class="text-secondary" style="font-size: 0.9rem; margin-bottom: 1.5rem; line-height: 1.4;">
+                        Используйте ваш аккаунт Google для безопасного входа и публикации объявлений.
+                    </p>
+                    <button class="google-btn" id="googleRealLoginBtn" style="background-color: #4285F4; color: white; border: none; width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 0.8rem 1.5rem; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; transition: background-color var(--transition-fast);">
+                        <i data-lucide="log-in" style="width: 18px; height: 18px;"></i>
                         <span>Войти через Google</span>
-                    </button>
-                    
-                    <div style="width: 100%; text-align: center; border-bottom: 1px solid var(--border-color); line-height: 0.1em; margin: 10px 0 20px;"><span style="background:var(--bg-secondary); padding:0 10px; font-size:0.75rem; color:var(--text-muted);">ИЛИ ДЕМО-ВХОД</span></div>
-                    
-                    <button class="google-btn" onclick="mockGoogleLogin('user-mock-1')">
-                        <img class="user-avatar" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop" alt="">
-                        <span>Аружан (Студент)</span>
-                    </button>
-                    <button class="google-btn" onclick="mockGoogleLogin('user-mock-2')">
-                        <img class="user-avatar" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop" alt="">
-                        <span>Данияр (Работает)</span>
-                    </button>
-                    <button class="google-btn" onclick="mockGoogleLogin('user-mock-3')">
-                        <img class="user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop" alt="">
-                        <span>Камила (Выпускница)</span>
-                    </button>
-                    <button class="google-btn" onclick="mockGoogleLogin('admin-user')">
-                        <span class="user-avatar" style="display:flex; align-items:center; justify-content:center; background:#7e52ff; font-weight:bold; color: white;">A</span>
-                        <span>Администратор Hata</span>
                     </button>
                 </div>
             </div>
@@ -257,7 +412,7 @@
                         </div>
 
                         <!-- Have Room Specific Section -->
-                        <div class="form-full form-grid" id="haveRoomDetails" style="display:none; grid-template-columns: 1fr 1fr; margin-bottom: 0; padding: 0;">
+                        <div class="form-full form-grid" id="haveRoomDetails" style="display:none; grid-template-columns: 1fr 1fr; margin-bottom: 0; padding: 0; gap: 1.25rem;">
                             <!-- Address -->
                             <div class="filter-group">
                                 <label for="formAddress">Адрес квартиры *</label>
@@ -291,7 +446,7 @@
 
                             <!-- Photo uploads inputs (minimum 3, maximum 6) -->
                             <div class="filter-group form-full">
-                                <label>Фотографии квартиры (минимум 3, максимум 6)</label>
+                                <label>Фотографии квартиры (ссылки, минимум 3, максимум 6)</label>
                                 <div class="image-previews-container" id="photoPreviews">
                                     <!-- Dynamic preview boxes -->
                                 </div>
@@ -363,7 +518,7 @@
 
                 <!-- Kaspi QR payment simulation -->
                 <div id="paymentBlock" style="margin-top:2rem; text-align:center; padding:1.5rem; background:rgba(0,0,0,0.2); border-radius:var(--radius-md); border:1.5px solid var(--border-color);">
-                    <h3 style="margin-bottom:0.75rem; justify-content:center;">Оплата через Kaspi.kz</h3>
+                    <h3 style="margin-bottom:0.75rem; display:flex; justify-content:center;">Оплата через Kaspi.kz</h3>
                     <!-- Quick mockup QR code -->
                     <div style="width:120px; height:120px; margin:0 auto 1rem; background:white; padding:10px; display:flex; flex-wrap:wrap; border-radius:var(--radius-sm);">
                         <div style="width:100%; height:100%; border:6px solid #f14635; display:flex; justify-content:center; align-items:center; font-weight:800; font-size:12px; color:#f14635; background: white;">Kaspi QR</div>
@@ -372,83 +527,6 @@
                         Откройте Kaspi.kz -> Сканировать QR код на экране для перевода <strong style="color:var(--accent-lime);" id="paySumLabel">190 ₸</strong>
                     </p>
                     <button class="btn btn-lime" onclick="processMockPayment()" style="width:100%;">Я оплатил (Симуляция оплаты)</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ADMIN PANEL MODAL -->
-    <div class="modal-overlay" id="adminModal">
-        <div class="modal-content" style="max-width: 850px;">
-            <div class="modal-header">
-                <h2>
-                    <i data-lucide="shield" style="width:18px; height:18px; margin-right:6px; vertical-align:middle;"></i>
-                    Панель Администратора Hata.kz
-                </h2>
-                <button class="modal-close" onclick="closeModal('adminModal')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="admin-grid">
-                    <!-- Left: settings configuration -->
-                    <div class="admin-sidebar">
-                        <h3>Настройки тарифов</h3>
-                        <div class="filter-group" style="margin-top: 1rem;">
-                            <label for="adminPostingFee">Плата за публикацию (₸)</label>
-                            <input type="text" id="adminPostingFee" class="form-control" value="0">
-                        </div>
-                        <div class="filter-group">
-                            <label for="adminPromo3Days">Топ на 3 дня (₸)</label>
-                            <input type="text" id="adminPromo3Days" class="form-control" value="190">
-                        </div>
-                        <div class="filter-group">
-                            <label for="adminPromoWeek">Топ на неделю (₸)</label>
-                            <input type="text" id="adminPromoWeek" class="form-control" value="490">
-                        </div>
-                        <div class="filter-group">
-                            <label for="adminPromoMonth">Топ на месяц (₸)</label>
-                            <input type="text" id="adminPromoMonth" class="form-control" value="590">
-                        </div>
-                        
-                        <h3 style="margin-top: 1rem;">Настройки Supabase Auth</h3>
-                        <div class="filter-group">
-                            <label for="adminSupabaseUrl">Supabase URL</label>
-                            <input type="text" id="adminSupabaseUrl" class="form-control" placeholder="https://your-project.supabase.co">
-                        </div>
-                        <div class="filter-group">
-                            <label for="adminSupabaseAnonKey">Supabase Anon Key</label>
-                            <input type="text" id="adminSupabaseAnonKey" class="form-control" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
-                        </div>
-                        <div class="filter-group">
-                            <label for="adminSupabaseRedirectUrl">Supabase Redirect URL (опционально)</label>
-                            <input type="text" id="adminSupabaseRedirectUrl" class="form-control" placeholder="https://hata-kz.onrender.com/">
-                            <span style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.25rem; display: block; line-height: 1.2;">
-                                Оставьте пустым для автоматического определения текущего URL страницы.
-                            </span>
-                        </div>
-                        
-                        <button class="btn btn-lime" onclick="saveAdminSettings()" style="margin-top: 1rem;">Сохранить настройки</button>
-                    </div>
-
-                    <!-- Right: list of listings for moderation -->
-                    <div class="admin-main">
-                        <h3>Модерация объявлений</h3>
-                        <div style="max-height: 480px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem;">
-                            <table style="width:100%; border-collapse:collapse; text-align:left; font-size:0.85rem;">
-                                <thead>
-                                    <tr style="border-bottom: 2px solid var(--border-color); color:var(--text-secondary);">
-                                        <th style="padding: 0.5rem;">Категория</th>
-                                        <th style="padding: 0.5rem;">Автор</th>
-                                        <th style="padding: 0.5rem;">Районы</th>
-                                        <th style="padding: 0.5rem;">Бюджет</th>
-                                        <th style="padding: 0.5rem; text-align:center;">Действие</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="adminModerationList">
-                                    <!-- Dynamic rows loaded via JS -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

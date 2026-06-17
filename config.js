@@ -9,6 +9,7 @@ const DEFAULT_CONFIG = {
     },
     supabaseUrl: "https://lyzbgzxmevttepsdpsor.supabase.co", // Реальный URL проекта
     supabaseAnonKey: "your-anon-key",                       // Сюда пользователь вставит свой реальный Anon Key через админку
+    supabaseRedirectUrl: "",                                // URL перенаправления после авторизации (опционально)
     cities: {
         almaty: {
             name: "Алматы",
@@ -111,8 +112,16 @@ function loadConfig() {
         const parsed = JSON.parse(savedConfig);
         
         // Автоматическая миграция: если в localStorage старый URL-заглушка, обновляем на реальный
+        let needsSave = false;
         if (!parsed.supabaseUrl || parsed.supabaseUrl === "https://your-project.supabase.co") {
             parsed.supabaseUrl = DEFAULT_CONFIG.supabaseUrl;
+            needsSave = true;
+        }
+        if (parsed.supabaseRedirectUrl === undefined) {
+            parsed.supabaseRedirectUrl = DEFAULT_CONFIG.supabaseRedirectUrl;
+            needsSave = true;
+        }
+        if (needsSave) {
             localStorage.setItem('hata_config', JSON.stringify(parsed));
         }
         return parsed;

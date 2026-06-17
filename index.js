@@ -146,10 +146,12 @@ function initAuth() {
                 return;
             }
             if (db.supabaseClient) {
+                const config = loadConfig();
+                const redirectUrl = config.supabaseRedirectUrl || (window.location.origin + window.location.pathname);
                 const { error } = await db.supabaseClient.auth.signInWithOAuth({
                     provider: 'google',
                     options: {
-                        redirectTo: window.location.origin + window.location.pathname
+                        redirectTo: redirectUrl
                     }
                 });
                 if (error) alert("Ошибка авторизации Supabase: " + error.message);
@@ -1063,6 +1065,11 @@ function updateAdminInputs() {
     
     document.getElementById('adminSupabaseUrl').value = config.supabaseUrl || '';
     document.getElementById('adminSupabaseAnonKey').value = config.supabaseAnonKey || '';
+    
+    const redirectInput = document.getElementById('adminSupabaseRedirectUrl');
+    if (redirectInput) {
+        redirectInput.value = config.supabaseRedirectUrl || '';
+    }
 }
 
 window.saveAdminSettings = function() {
@@ -1073,6 +1080,9 @@ window.saveAdminSettings = function() {
     
     const supabaseUrl = document.getElementById('adminSupabaseUrl').value.trim();
     const supabaseAnonKey = document.getElementById('adminSupabaseAnonKey').value.trim();
+    
+    const redirectInput = document.getElementById('adminSupabaseRedirectUrl');
+    const supabaseRedirectUrl = redirectInput ? redirectInput.value.trim() : '';
 
     const config = loadConfig();
     config.pricing = {
@@ -1083,6 +1093,7 @@ window.saveAdminSettings = function() {
     };
     config.supabaseUrl = supabaseUrl;
     config.supabaseAnonKey = supabaseAnonKey;
+    config.supabaseRedirectUrl = supabaseRedirectUrl;
     
     saveConfig(config);
     

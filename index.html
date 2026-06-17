@@ -418,6 +418,13 @@
                             <label for="adminSupabaseAnonKey">Supabase Anon Key</label>
                             <input type="text" id="adminSupabaseAnonKey" class="form-control" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
                         </div>
+                        <div class="filter-group">
+                            <label for="adminSupabaseRedirectUrl">Supabase Redirect URL (опционально)</label>
+                            <input type="text" id="adminSupabaseRedirectUrl" class="form-control" placeholder="https://hata-kz.onrender.com/">
+                            <span style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.25rem; display: block; line-height: 1.2;">
+                                Оставьте пустым для автоматического определения текущего URL страницы.
+                            </span>
+                        </div>
                         
                         <button class="btn btn-lime" onclick="saveAdminSettings()" style="margin-top: 1rem;">Сохранить настройки</button>
                     </div>

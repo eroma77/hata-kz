@@ -141,6 +141,10 @@ function initAuth() {
     const googleRealLoginBtn = document.getElementById('googleRealLoginBtn');
     if (googleRealLoginBtn) {
         googleRealLoginBtn.addEventListener('click', async () => {
+            if (window.location.protocol === 'file:') {
+                alert("Ошибка: Вы открыли проект напрямую через файл (file://). Google OAuth не поддерживает файлы. Запустите локальный сервер (команда npx http-server в терминале) и откройте сайт по адресу http://localhost:8080 для проверки входа.");
+                return;
+            }
             if (db.supabaseClient) {
                 const { error } = await db.supabaseClient.auth.signInWithOAuth({
                     provider: 'google',

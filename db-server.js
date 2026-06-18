@@ -59,7 +59,6 @@ function mapToDB(listing) {
     if (listing.boostExpiredAt !== undefined) dbItem.boost_expired_at = listing.boostExpiredAt;
     if (listing.archivedAt !== undefined) dbItem.archived_at = listing.archivedAt;
     if (listing.status !== undefined) dbItem.status = listing.status;
-    if (listing.ownerVerifiedStudent !== undefined) dbItem.owner_verified_student = listing.ownerVerifiedStudent;
     
     return dbItem;
 }
@@ -97,8 +96,7 @@ function mapFromDB(dbItem) {
         createdAt: dbItem.created_at,
         boostExpiredAt: dbItem.boost_expired_at,
         archivedAt: dbItem.archived_at || null,
-        status: dbItem.status,
-        ownerVerifiedStudent: !!dbItem.owner_verified_student
+        status: dbItem.status
     };
 }
 
@@ -527,8 +525,7 @@ class ServerDatabase {
                 hasContract: true,
                 createdAt: new Date().toISOString(),
                 boostExpiredAt: null,
-                status: "active",
-                ownerVerifiedStudent: i % 3 === 0
+                status: "active"
             });
  
             listings.push({
@@ -561,8 +558,7 @@ class ServerDatabase {
                 hasContract: false,
                 createdAt: new Date().toISOString(),
                 boostExpiredAt: null,
-                status: "active",
-                ownerVerifiedStudent: i % 3 === 0
+                status: "active"
             });
         }
  

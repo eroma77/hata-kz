@@ -9,8 +9,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware for parsing requests
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Global mock storage for server config
 let HataConfig = {
@@ -126,7 +126,7 @@ app.post('/api/listings', authenticateToken, async (req, res) => {
         }
 
         const {
-            category, budgetMin, budgetMax, budget, age, city, districts, whatsapp, gender, occupation,
+            category, budgetMin, budgetMax, budget, age, ageMin, ageMax, city, districts, whatsapp, gender, occupation,
             roomCount, roommateCount, totalResidents, genderPref, description, photos, address, gisLink, hasDeposit, hasContract, residentsCount
         } = req.body;
 
@@ -148,10 +148,28 @@ app.post('/api/listings', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Минимальный бюджет не может превышать максимальный' });
         }
 
-        // Validate age range: 16 to 50
-        const ageNum = parseInt(age);
-        if (isNaN(ageNum) || ageNum < 16 || ageNum > 50) {
-            return res.status(400).json({ error: 'Возраст должен быть в диапазоне от 16 до 50 лет' });
+        // Validate age range based on category
+        let ageVal, ageMinVal, ageMaxVal;
+        if (category === 'have_room') {
+            ageMinVal = parseInt(ageMin);
+            ageMaxVal = parseInt(ageMax);
+            if (isNaN(ageMinVal) || ageMinVal < 16 || ageMinVal > 50) {
+                return res.status(400).json({ error: 'Минимальный возраст должен быть от 16 до 50 лет' });
+            }
+            if (isNaN(ageMaxVal) || ageMaxVal < 16 || ageMaxVal > 50) {
+                return res.status(400).json({ error: 'Максимальный возраст должен быть от 16 до 50 лет' });
+            }
+            if (ageMinVal > ageMaxVal) {
+                return res.status(400).json({ error: 'Минимальный возраст не может быть больше максимального' });
+            }
+            ageVal = ageMaxVal; // fallback for older code
+        } else {
+            ageVal = parseInt(age);
+            if (isNaN(ageVal) || ageVal < 16 || ageVal > 50) {
+                return res.status(400).json({ error: 'Возраст должен быть в диапазоне от 16 до 50 лет' });
+            }
+            ageMinVal = ageVal;
+            ageMaxVal = ageVal;
         }
 
         if (!city) {
@@ -170,19 +188,25 @@ app.post('/api/listings', authenticateToken, async (req, res) => {
         // WhatsApp Validation E.164 (strictly 11 digits starting with 77)
         const digits = whatsapp ? whatsapp.replace(/\D/g, '') : '';
         if (digits.length !== 11 || !digits.startsWith('77')) {
-            return res.status(400).json({ error: 'Номер WhatsApp должен содержать строго 11 цифр и начинаться с 77 (например, 7771234567)' });
+            return res.status(400).json({ error: 'Номер WhatsApp должен содержать строго 11 цифр и начинаться с 77 (например, 77071234567)' });
         }
 
-        // 2GIS Link validation
+        // 2GIS Link validation (allows both kz and mobile go.2gis.com)
         if (category === 'have_room') {
-            if (!gisLink || !gisLink.startsWith('https://2gis.kz/')) {
-                return res.status(400).json({ error: 'Ссылка 2GIS должна быть валидным URL-адресом и начинаться строго с https://2gis.kz/' });
+            if (!gisLink || (!gisLink.startsWith('https://2gis.kz/') && !gisLink.startsWith('https://go.2gis.com/'))) {
+                return res.status(400).json({ error: 'Ссылка 2GIS должна начинаться строго с https://2gis.kz/ или https://go.2gis.com/' });
             }
+        }
 
-            // Photo array validation (strictly 3 to 6 photos, clean empty strings)
-            const cleanPhotos = Array.isArray(photos) ? photos.map(url => url.trim()).filter(url => url !== '') : [];
+        // Photos validation based on category (optional for seekers, required for landlords)
+        const cleanPhotos = Array.isArray(photos) ? photos.map(url => url.trim()).filter(url => url !== '') : [];
+        if (category === 'have_room') {
             if (cleanPhotos.length < 3 || cleanPhotos.length > 6) {
-                return res.status(400).json({ error: 'Необходимо добавить от 3 до 6 ссылок на фотографии квартиры' });
+                return res.status(400).json({ error: 'Необходимо добавить от 3 до 6 фотографий квартиры' });
+            }
+        } else {
+            if (cleanPhotos.length > 3) {
+                return res.status(400).json({ error: 'Для анкеты соискателя можно добавить максимум 3 селфи/аватарки' });
             }
         }
 
@@ -198,7 +222,9 @@ app.post('/api/listings', authenticateToken, async (req, res) => {
             budgetMin: bMin,
             budgetMax: bMax,
             budget: bMax, // fallback
-            age: ageNum,
+            age: ageVal,
+            ageMin: ageMinVal,
+            ageMax: ageMaxVal,
             city,
             districts: Array.isArray(districts) ? districts.map(d => escapeHTML(d)) : [],
             whatsapp: digits,
@@ -210,7 +236,7 @@ app.post('/api/listings', authenticateToken, async (req, res) => {
             totalResidents: category === 'have_room' && totalResidents ? parseInt(totalResidents) : 1,
             residentsCount: category === 'need_room' ? resCount : 1,
             description: escapeHTML(description),
-            photos: category === 'have_room' ? photos.filter(url => url.trim() !== '') : [],
+            photos: cleanPhotos,
             address: escapeHTML(address),
             gisLink: category === 'have_room' ? gisLink : '',
             hasDeposit: !!hasDeposit,
@@ -240,7 +266,7 @@ app.put('/api/listings/:id', authenticateToken, async (req, res) => {
         }
 
         const {
-            budgetMin, budgetMax, budget, age, city, districts, whatsapp, gender, occupation,
+            budgetMin, budgetMax, budget, age, ageMin, ageMax, city, districts, whatsapp, gender, occupation,
             roomCount, roommateCount, totalResidents, genderPref, description, photos, address, gisLink, hasDeposit, hasContract, residentsCount
         } = req.body;
 
@@ -257,14 +283,33 @@ app.put('/api/listings/:id', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Минимальный бюджет не может превышать максимальный' });
         }
 
-        const ageNum = parseInt(age);
-        if (isNaN(ageNum) || ageNum < 16 || ageNum > 50) {
-            return res.status(400).json({ error: 'Возраст должен быть в диапазоне от 16 до 50 лет' });
+        // Validate age range based on category
+        let ageVal, ageMinVal, ageMaxVal;
+        if (listing.category === 'have_room') {
+            ageMinVal = parseInt(ageMin);
+            ageMaxVal = parseInt(ageMax);
+            if (isNaN(ageMinVal) || ageMinVal < 16 || ageMinVal > 50) {
+                return res.status(400).json({ error: 'Минимальный возраст должен быть от 16 до 50 лет' });
+            }
+            if (isNaN(ageMaxVal) || ageMaxVal < 16 || ageMaxVal > 50) {
+                return res.status(400).json({ error: 'Максимальный возраст должен быть от 16 до 50 лет' });
+            }
+            if (ageMinVal > ageMaxVal) {
+                return res.status(400).json({ error: 'Минимальный возраст не может быть больше максимального' });
+            }
+            ageVal = ageMaxVal;
+        } else {
+            ageVal = parseInt(age);
+            if (isNaN(ageVal) || ageVal < 16 || ageVal > 50) {
+                return res.status(400).json({ error: 'Возраст должен быть в диапазоне от 16 до 50 лет' });
+            }
+            ageMinVal = ageVal;
+            ageMaxVal = ageVal;
         }
 
         const digits = whatsapp ? whatsapp.replace(/\D/g, '') : '';
         if (digits.length !== 11 || !digits.startsWith('77')) {
-            return res.status(400).json({ error: 'Номер WhatsApp должен содержать строго 11 цифр и начинаться с 77' });
+            return res.status(400).json({ error: 'Номер WhatsApp должен содержать строго 11 цифр и начинаться с 77 (например, 77071234567)' });
         }
 
         let resCount = 1;
@@ -276,12 +321,20 @@ app.put('/api/listings/:id', authenticateToken, async (req, res) => {
         }
 
         if (listing.category === 'have_room') {
-            if (!gisLink || !gisLink.startsWith('https://2gis.kz/')) {
-                return res.status(400).json({ error: 'Ссылка 2GIS должна начинаться строго с https://2gis.kz/' });
+            if (!gisLink || (!gisLink.startsWith('https://2gis.kz/') && !gisLink.startsWith('https://go.2gis.com/'))) {
+                return res.status(400).json({ error: 'Ссылка 2GIS должна начинаться строго с https://2gis.kz/ или https://go.2gis.com/' });
             }
-            const cleanPhotos = Array.isArray(photos) ? photos.map(url => url.trim()).filter(url => url !== '') : [];
+        }
+
+        // Photos validation based on category (optional for seekers, required for landlords)
+        const cleanPhotos = Array.isArray(photos) ? photos.map(url => url.trim()).filter(url => url !== '') : [];
+        if (listing.category === 'have_room') {
             if (cleanPhotos.length < 3 || cleanPhotos.length > 6) {
-                return res.status(400).json({ error: 'Необходимо добавить от 3 до 6 фотографий' });
+                return res.status(400).json({ error: 'Необходимо добавить от 3 до 6 фотографий квартиры' });
+            }
+        } else {
+            if (cleanPhotos.length > 3) {
+                return res.status(400).json({ error: 'Для анкеты соискателя можно добавить максимум 3 селфи/аватарки' });
             }
         }
 
@@ -291,7 +344,9 @@ app.put('/api/listings/:id', authenticateToken, async (req, res) => {
             budgetMin: bMin,
             budgetMax: bMax,
             budget: bMax, // fallback
-            age: ageNum,
+            age: ageVal,
+            ageMin: ageMinVal,
+            ageMax: ageMaxVal,
             city,
             districts: Array.isArray(districts) ? districts.map(d => escapeHTML(d)) : [],
             whatsapp: digits,
@@ -303,7 +358,7 @@ app.put('/api/listings/:id', authenticateToken, async (req, res) => {
             totalResidents: listing.category === 'have_room' && totalResidents ? parseInt(totalResidents) : 1,
             residentsCount: listing.category === 'need_room' ? resCount : 1,
             description: escapeHTML(description),
-            photos: listing.category === 'have_room' ? photos.filter(url => url.trim() !== '') : [],
+            photos: cleanPhotos,
             address: escapeHTML(address),
             gisLink: listing.category === 'have_room' ? gisLink : '',
             hasDeposit: !!hasDeposit,

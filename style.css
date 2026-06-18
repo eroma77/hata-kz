@@ -1661,3 +1661,8 @@ h1, h2, h3, h4, h5, h6, .listings-header h2, .modal-header h2, .profile-header h
     color: var(--text-primary);
 }
 
+.listings-grid .empty-feed {
+    grid-column: 1 / -1;
+}
+
+

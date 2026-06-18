@@ -8,6 +8,9 @@
     <!-- Lucide Icons and Supabase CDNs -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="dark-theme">
@@ -165,6 +168,16 @@
                             <option value="6">6-12 месяцев</option>
                             <option value="12">12+ месяцев</option>
                             <option value="always">Всегда</option>
+                        </select>
+                    </div>
+
+                    <!-- Seeker Photos Filter (Category A only) -->
+                    <div class="filter-group" id="filterHasPhotosGroup" style="display:none;">
+                        <label for="filterHasPhotos">Наличие фото анкеты</label>
+                        <select id="filterHasPhotos" class="form-control">
+                            <option value="any">Не важно</option>
+                            <option value="with_photo">С фото</option>
+                            <option value="no_photo">Без фото</option>
                         </select>
                     </div>
 
@@ -395,24 +408,37 @@
                             </select>
                         </div>
                         
-                        <!-- Budget Min & Max -->
-                        <div class="filter-group form-full form-grid" style="grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 0; padding: 0;">
-                            <div class="filter-group">
-                                <label for="formBudgetMin" id="formBudgetMinLabel">Цена от (₸/мес)</label>
-                                <input type="text" id="formBudgetMin" class="form-control" placeholder="От 10 000" required>
-                            </div>
-                            <div class="filter-group">
-                                <label for="formBudgetMax" id="formBudgetMaxLabel">Цена до (₸/мес)</label>
-                                <input type="text" id="formBudgetMax" class="form-control" placeholder="До 1 000 000" required>
+                        <!-- Budget Range -->
+                        <div class="filter-group form-full">
+                            <label id="formBudgetLabel">Стоимость аренды (₸)</label>
+                            <div style="display: flex; gap: 0.75rem;">
+                                <input type="text" id="formBudgetMin" class="form-control" placeholder="От 10 000" required style="flex: 1;">
+                                <input type="text" id="formBudgetMax" class="form-control" placeholder="До 1 000 000" required style="flex: 1;">
                             </div>
                         </div>
                         
-                        <!-- Age -->
-                        <div class="filter-group">
+                        <!-- Seeker Age (Single Dropdown) -->
+                        <div class="filter-group" id="formAgeSingleGroup">
                             <label for="formAge" id="formAgeLabel">Ваш возраст</label>
                             <select id="formAge" class="form-control" required>
                                 <!-- options 16 to 50 populated dynamically -->
                             </select>
+                        </div>
+
+                        <!-- Landlord Preferred Age (Range Dropdowns) -->
+                        <div class="filter-group form-grid form-full" id="formAgeRangeGroup" style="display:none; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 0; padding: 0;">
+                            <div class="filter-group" style="margin-bottom: 0;">
+                                <label for="formAgeMin">Возраст сожителя от</label>
+                                <select id="formAgeMin" class="form-control">
+                                    <!-- options 16 to 50 populated dynamically -->
+                                </select>
+                            </div>
+                            <div class="filter-group" style="margin-bottom: 0;">
+                                <label for="formAgeMax">Возраст сожителя до</label>
+                                <select id="formAgeMax" class="form-control">
+                                    <!-- options 16 to 50 populated dynamically -->
+                                </select>
+                            </div>
                         </div>
 
                         <!-- City -->
@@ -578,14 +604,16 @@
                                 </select>
                             </div>
 
-                            <!-- Photo uploads inputs (minimum 3, maximum 6) -->
-                            <div class="filter-group form-full">
-                                <label>Фотографии квартиры (ссылки, минимум 3, максимум 6)</label>
-                                <div class="image-previews-container" id="photoPreviews">
-                                    <!-- Dynamic preview boxes -->
-                                </div>
-                                <span style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem; display:block;">Нажмите на плюс, чтобы добавить ссылки на фото.</span>
+                        </div>
+
+                        <!-- Photo Upload Block (Common for both categories, dynamically adjusted) -->
+                        <div class="filter-group form-full">
+                            <label id="formPhotosLabel">Фотографии квартиры</label>
+                            <input type="file" id="formPhotoUploadInput" multiple accept="image/*" style="display:none;">
+                            <div class="image-previews-container" id="photoPreviews">
+                                <!-- Dynamic preview boxes -->
                             </div>
+                            <span id="formPhotosSubtitle" style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem; display:block;">Нажмите на плюс, чтобы выбрать фото квартиры.</span>
                         </div>
 
                         <!-- Districts Multiple Tag Selection -->

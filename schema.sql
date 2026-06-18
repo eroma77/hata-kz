@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS public.listings (
     budget_min NUMERIC,
     budget_max NUMERIC,
     age INTEGER NOT NULL,
+    age_min INTEGER,
+    age_max INTEGER,
     city TEXT NOT NULL,
     districts TEXT[] DEFAULT '{}',
     whatsapp TEXT NOT NULL,
@@ -29,6 +31,7 @@ CREATE TABLE IF NOT EXISTS public.listings (
     has_contract BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     boost_expired_at TIMESTAMP WITH TIME ZONE,
+    archived_at TIMESTAMP WITH TIME ZONE,
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'archived')) NOT NULL
 );
 
@@ -51,3 +54,9 @@ CREATE POLICY "Allow owners to update their listings" ON public.listings
 
 CREATE POLICY "Allow owners or admins to delete/archive" ON public.listings
     FOR DELETE USING (auth.uid()::text = owner_id);
+
+-- Migration Alter Statements for existing tables
+ALTER TABLE public.listings ADD COLUMN IF NOT EXISTS age_min INTEGER;
+ALTER TABLE public.listings ADD COLUMN IF NOT EXISTS age_max INTEGER;
+ALTER TABLE public.listings ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE;
+

@@ -57,12 +57,21 @@ document.addEventListener('DOMContentLoaded', () => {
 // Modal helpers
 window.openModal = function(id) {
     const el = document.getElementById(id);
-    if (el) el.classList.add('open');
+    if (el) {
+        el.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
 };
 
 window.closeModal = function(id) {
     const el = document.getElementById(id);
-    if (el) el.classList.remove('open');
+    if (el) {
+        el.classList.remove('open');
+        const anyOpen = document.querySelectorAll('.modal-overlay.open').length > 0;
+        if (!anyOpen) {
+            document.body.style.overflow = '';
+        }
+    }
 };
 
 // --- THEME MANAGEMENT ---
@@ -136,6 +145,8 @@ function populateCitiesDropdowns() {
         });
         if (currentVal && HataConfig.cities[currentVal]) {
             filterCity.value = currentVal;
+        } else {
+            filterCity.value = 'almaty';
         }
     }
     
@@ -150,6 +161,8 @@ function populateCitiesDropdowns() {
         });
         if (currentVal && HataConfig.cities[currentVal]) {
             formCity.value = currentVal;
+        } else {
+            formCity.value = 'almaty';
         }
     }
 }
@@ -270,6 +283,7 @@ function updateFilterLabels(cat) {
     const stayTermGroup = document.getElementById('filterStayTermGroup');
     const totalResidentsGroup = document.getElementById('filterTotalResidentsGroup');
     const roommateCountGroup = document.getElementById('filterRoommateCountGroup');
+    const filterHasPhotosGroup = document.getElementById('filterHasPhotosGroup');
     
     if (cat === 'have_room') {
         if (filterGenderLabel) filterGenderLabel.textContent = 'Пол сожителя';
@@ -279,6 +293,7 @@ function updateFilterLabels(cat) {
         if (stayTermGroup) stayTermGroup.style.display = 'none';
         if (totalResidentsGroup) totalResidentsGroup.style.display = 'flex';
         if (roommateCountGroup) roommateCountGroup.style.display = 'flex';
+        if (filterHasPhotosGroup) filterHasPhotosGroup.style.display = 'none';
     } else {
         if (filterGenderLabel) filterGenderLabel.textContent = 'Пол соискателя';
         if (filterRoomsLabel) filterRoomsLabel.textContent = 'Нужно комнат';
@@ -287,6 +302,7 @@ function updateFilterLabels(cat) {
         if (stayTermGroup) stayTermGroup.style.display = 'flex';
         if (totalResidentsGroup) totalResidentsGroup.style.display = 'none';
         if (roommateCountGroup) roommateCountGroup.style.display = 'none';
+        if (filterHasPhotosGroup) filterHasPhotosGroup.style.display = 'flex';
     }
 }
 
@@ -440,7 +456,8 @@ function validateFilterBudgetRange() {
 }
 
 function updateDistrictsFilter() {
-    const cityKey = document.getElementById('filterCity').value;
+    let cityKey = document.getElementById('filterCity').value;
+    if (!cityKey) cityKey = 'almaty';
     const container = document.getElementById('filterDistrictsContainer');
     const wrapper = document.getElementById('filterDistrictsWrapper');
     
@@ -495,6 +512,8 @@ function renderListings() {
     const stayTermFilter = document.getElementById('filterStayTerm').value;
     const totalResidentsFilter = document.getElementById('filterTotalResidents').value;
     const roommateCountFilter = document.getElementById('filterRoommateCount').value;
+    const hasPhotosFilterEl = document.getElementById('filterHasPhotos');
+    const hasPhotosFilter = hasPhotosFilterEl ? hasPhotosFilterEl.value : 'any';
     
     // Global search input
     const searchInput = document.getElementById('globalSearchInput');
@@ -529,6 +548,12 @@ function renderListings() {
             if (!match) return false;
         }
         
+        if (hasPhotosFilter !== 'any') {
+            const hasPhotos = item.photos && item.photos.length > 0;
+            if (hasPhotosFilter === 'true' && !hasPhotos) return false;
+            if (hasPhotosFilter === 'false' && hasPhotos) return false;
+        }
+
         if (currentCategory === 'need_room') {
             if (stayTermFilter !== 'any' && item.stayTerm !== stayTermFilter) return false;
         } else {
@@ -628,7 +653,10 @@ function renderListings() {
         else if (item.occupation === 'work') tagOccupation = 'Работает';
         else tagOccupation = 'Не занят';
 
-        const genderLabel = item.gender === 'male' ? 'Парень' : 'Девушка';
+        let genderLabel = '';
+        if (item.gender === 'male') genderLabel = 'Парень';
+        else if (item.gender === 'female') genderLabel = 'Девушка';
+        else genderLabel = 'Любой пол';
         
         const distStr = item.districts && item.districts.length > 0
             ? `<span class="card-tag accent"><i data-lucide="map-pin" style="width:10px; height:10px; margin-right:2px; vertical-align:middle;"></i>${item.districts.join(', ')}</span>`
@@ -662,7 +690,10 @@ function renderListings() {
                     </div>
                     
                     <div class="card-tags">
-                        <span class="card-tag accent">${genderLabel}, ${item.age} лет</span>
+                        ${item.category === 'have_room'
+                            ? `<span class="card-tag accent">Ищу сожителя, ${item.ageMin}-${item.ageMax} лет</span><span class="card-tag">Пол: ${genderLabel}</span>`
+                            : `<span class="card-tag accent">${genderLabel}, ${item.age} лет</span>`
+                        }
                         <span class="card-tag">${tagOccupation}</span>
                         <span class="card-tag">${item.roomCount === 'any' ? 'Любая комн.' : item.roomCount + ' комн.'}</span>
                         ${item.hasDeposit ? `<span class="card-tag accent">${item.category === 'need_room' ? 'Готов к депозиту' : 'Депозит'}</span>` : ''}
@@ -828,28 +859,107 @@ function initForm() {
     if (formBudgetMin) attachNumberFormatting(formBudgetMin, validateFormBudgetBounds);
     if (formBudgetMax) attachNumberFormatting(formBudgetMax, validateFormBudgetBounds);
     
-    // Populate formAge dropdown (16 to 50 years)
+    // Populate formAge dropdowns (16 to 50 years)
     const formAge = document.getElementById('formAge');
-    if (formAge) {
-        formAge.innerHTML = '';
-        for (let i = 16; i <= 50; i++) {
-            const opt = document.createElement('option');
-            opt.value = i;
-            opt.textContent = `${i} ${getRussianAgeSuffix(i)}`;
-            formAge.appendChild(opt);
+    const formAgeMin = document.getElementById('formAgeMin');
+    const formAgeMax = document.getElementById('formAgeMax');
+    [formAge, formAgeMin, formAgeMax].forEach(select => {
+        if (select) {
+            select.innerHTML = '';
+            for (let i = 16; i <= 50; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `${i} ${getRussianAgeSuffix(i)}`;
+                select.appendChild(opt);
+            }
         }
-    }
+    });
 
-    // Setup mask on phone (WhatsApp)
+    // Setup mask on phone (WhatsApp) - 11 digits starting with 77
     const formWhatsapp = document.getElementById('formWhatsapp');
     if (formWhatsapp) {
         formWhatsapp.addEventListener('input', (e) => {
-            e.target.value = e.target.value.replace(/\D/g, '').substring(0, 10);
+            e.target.value = e.target.value.replace(/\D/g, '').substring(0, 11);
+        });
+    }
+
+    // Setup file upload listener
+    const formPhotoUploadInput = document.getElementById('formPhotoUploadInput');
+    if (formPhotoUploadInput) {
+        formPhotoUploadInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            
+            const formCatEl = document.getElementById('formCategory');
+            const formCat = formCatEl ? formCatEl.value : 'have_room';
+            const maxPhotos = formCat === 'have_room' ? 6 : 3;
+            const remaining = maxPhotos - formImagesList.length;
+            
+            if (files.length > remaining) {
+                alert(`Вы можете выбрать еще максимум ${remaining} фото.`);
+                e.target.value = '';
+                return;
+            }
+            
+            const submitBtn = document.getElementById('formSubmitBtn');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Загрузка фото...';
+            
+            for (const file of files) {
+                try {
+                    const url = await uploadPhoto(file);
+                    formImagesList.push(url);
+                } catch (err) {
+                    alert(`Ошибка при загрузке "${file.name}": ` + err.message);
+                }
+            }
+            
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+            e.target.value = '';
+            initFormPhotoPreviews();
         });
     }
 
     setupAutofillPopup(formWhatsapp, document.getElementById('whatsappSuggestion'), 'whatsapp');
     setupAutofillPopup(document.getElementById('formAddress'), document.getElementById('addressSuggestion'), 'address');
+}
+
+async function uploadPhoto(file) {
+    if (db.supabaseClient) {
+        try {
+            const user = db.getCurrentUser();
+            const userId = user ? user.id : 'anonymous';
+            const fileExt = file.name.split('.').pop() || 'jpg';
+            const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+            const filePath = `${userId}/${fileName}`;
+            
+            const { data, error } = await db.supabaseClient.storage
+                .from('listing-photos')
+                .upload(filePath, file, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+                
+            if (error) throw error;
+            
+            const { data: publicUrlData } = db.supabaseClient.storage
+                .from('listing-photos')
+                .getPublicUrl(filePath);
+                
+            return publicUrlData.publicUrl;
+        } catch (e) {
+            console.warn("Supabase Storage Upload failed, falling back to base64:", e.message);
+        }
+    }
+    // Local fallback (Base64 data URI)
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = (err) => reject(err);
+        reader.readAsDataURL(file);
+    });
 }
 
 function getRussianAgeSuffix(age) {
@@ -951,19 +1061,29 @@ window.toggleFormCategory = function(category) {
     const genderAnyOpt = document.getElementById('formGenderAnyOption');
     const genderSelect = document.getElementById('formGender');
     
+    const formAgeSingleGroup = document.getElementById('formAgeSingleGroup');
+    const formAgeRangeGroup = document.getElementById('formAgeRangeGroup');
+    
+    const formPhotosLabel = document.getElementById('formPhotosLabel');
+    const formPhotosSubtitle = document.getElementById('formPhotosSubtitle');
+    
     if (category === 'have_room') {
         if (detailsBlock) detailsBlock.style.display = 'grid';
         if (stayTermBlock) stayTermBlock.style.display = 'none';
         if (residentsCountBlock) residentsCountBlock.style.display = 'none';
         if (genderAnyOpt) genderAnyOpt.style.display = 'block';
         
-        document.getElementById('formBudgetMinLabel').textContent = 'Стоимость аренды от (₸/мес)';
-        document.getElementById('formBudgetMaxLabel').textContent = 'Стоимость аренды до (₸/мес)';
+        if (formAgeSingleGroup) formAgeSingleGroup.style.display = 'none';
+        if (formAgeRangeGroup) formAgeRangeGroup.style.display = 'grid';
+        
+        document.getElementById('formBudgetLabel').textContent = 'Стоимость аренды (₸/мес)';
         document.getElementById('formGenderLabel').textContent = 'Кого вы ищете (Пол сожителя)';
         document.getElementById('formRoommateLabel').textContent = 'Сколько человек ищете';
         document.getElementById('formRoomCountLabel').textContent = 'Комнат в квартире';
         document.getElementById('formDepositLabel').textContent = 'Депозит';
-        initFormPhotoPreviews();
+        
+        if (formPhotosLabel) formPhotosLabel.textContent = 'Фотографии квартиры (минимум 3, максимум 6)';
+        if (formPhotosSubtitle) formPhotosSubtitle.textContent = 'Нажмите на плюс, чтобы выбрать фото квартиры.';
     } else {
         if (detailsBlock) detailsBlock.style.display = 'none';
         if (stayTermBlock) stayTermBlock.style.display = 'block';
@@ -975,13 +1095,20 @@ window.toggleFormCategory = function(category) {
             }
         }
         
-        document.getElementById('formBudgetMinLabel').textContent = 'Ваш бюджет от (₸/мес)';
-        document.getElementById('formBudgetMaxLabel').textContent = 'Ваш бюджет до (₸/мес)';
+        if (formAgeSingleGroup) formAgeSingleGroup.style.display = 'block';
+        if (formAgeRangeGroup) formAgeRangeGroup.style.display = 'none';
+        
+        document.getElementById('formBudgetLabel').textContent = 'Ваш бюджет (₸/мес)';
         document.getElementById('formGenderLabel').textContent = 'Ваш пол';
         document.getElementById('formRoommateLabel').textContent = 'С кем хотите жить';
         document.getElementById('formRoomCountLabel').textContent = 'Сколько комнат нужно';
         document.getElementById('formDepositLabel').textContent = 'Готовность внести депозит';
+        
+        if (formPhotosLabel) formPhotosLabel.textContent = 'Ваши фотографии / селфи (необязательно, максимум 3)';
+        if (formPhotosSubtitle) formPhotosSubtitle.textContent = 'Загрузите свое фото, чтобы арендодатели могли видеть сожителя.';
     }
+    
+    initFormPhotoPreviews();
 };
 
 function openListingForm(id = null) {
@@ -1024,14 +1151,17 @@ function openListingForm(id = null) {
             }
             toggleFormCategory(item.category);
             
+            formImagesList = [...(item.photos || [])];
+            initFormPhotoPreviews();
+
             if (item.category === 'have_room') {
                 document.getElementById('formAddress').value = item.address || '';
                 document.getElementById('formGisLink').value = item.gisLink || '';
                 document.getElementById('formTotalResidents').value = item.totalResidents || '1';
                 document.getElementById('formContract').value = item.hasContract ? 'true' : 'false';
                 
-                formImagesList = [...(item.photos || [])];
-                initFormPhotoPreviews();
+                document.getElementById('formAgeMin').value = item.ageMin || item.age || '18';
+                document.getElementById('formAgeMax').value = item.ageMax || item.age || '25';
             } else {
                 document.getElementById('formStayTerm').value = item.stayTerm || 'any';
                 document.getElementById('formResidentsCount').value = item.residentsCount || '1';
@@ -1058,6 +1188,8 @@ function openListingForm(id = null) {
         document.getElementById('formBudgetMin').value = '';
         document.getElementById('formBudgetMax').value = '';
         document.getElementById('formAge').value = '20';
+        document.getElementById('formAgeMin').value = '18';
+        document.getElementById('formAgeMax').value = '25';
         document.getElementById('formGenderPref').value = 'any';
         document.getElementById('formResidentsCount').value = '1';
         document.getElementById('formDescription').value = '';
@@ -1074,7 +1206,8 @@ function openListingForm(id = null) {
 }
 
 window.updateFormDistricts = function() {
-    const cityKey = document.getElementById('formCity').value;
+    let cityKey = document.getElementById('formCity').value;
+    if (!cityKey) cityKey = 'almaty';
     const container = document.getElementById('formDistrictsContainer');
     const wrapper = document.getElementById('formDistrictsWrapper');
     
@@ -1147,11 +1280,18 @@ function initFormPhotoPreviews() {
         container.appendChild(box);
     });
     
-    if (formImagesList.length < 6) {
+    const formCatEl = document.getElementById('formCategory');
+    const formCat = formCatEl ? formCatEl.value : 'have_room';
+    const maxPhotos = formCat === 'have_room' ? 6 : 3;
+    
+    if (formImagesList.length < maxPhotos) {
         const addBox = document.createElement('div');
         addBox.className = 'img-preview-box';
         addBox.textContent = '+';
-        addBox.addEventListener('click', addFormImageMock);
+        addBox.addEventListener('click', () => {
+            const fileInput = document.getElementById('formPhotoUploadInput');
+            if (fileInput) fileInput.click();
+        });
         container.appendChild(addBox);
     }
 }
@@ -1160,25 +1300,6 @@ window.removeFormImage = function(idx) {
     formImagesList.splice(idx, 1);
     initFormPhotoPreviews();
 };
-
-function addFormImageMock() {
-    const url = prompt("Введите URL-ссылку на фотографию квартиры (начинающуюся с http:// или https://):");
-    if (url === null) return;
-    
-    const trimmedUrl = url.trim();
-    if (!trimmedUrl) {
-        alert("URL-ссылка не может быть пустой.");
-        return;
-    }
-    
-    if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
-        alert("Некорректная ссылка. Она должна начинаться с http:// или https://");
-        return;
-    }
-    
-    formImagesList.push(trimmedUrl);
-    initFormPhotoPreviews();
-}
 
 window.handleListingSubmit = async function(event) {
     event.preventDefault();
@@ -1202,10 +1323,31 @@ window.handleListingSubmit = async function(event) {
         return;
     }
     
-    const age = parseInt(document.getElementById('formAge').value);
-    if (!age || age < 16 || age > 50) {
-        alert("Пожалуйста, укажите возраст от 16 до 50 лет.");
-        return;
+    let age = parseInt(document.getElementById('formAge').value);
+    let ageMin = null;
+    let ageMax = null;
+    
+    if (category === 'have_room') {
+        ageMin = parseInt(document.getElementById('formAgeMin').value);
+        ageMax = parseInt(document.getElementById('formAgeMax').value);
+        if (isNaN(ageMin) || ageMin < 16 || ageMin > 50) {
+            alert("Пожалуйста, укажите минимальный возраст сожителя от 16 до 50 лет.");
+            return;
+        }
+        if (isNaN(ageMax) || ageMax < 16 || ageMax > 50) {
+            alert("Пожалуйста, укажите максимальный возраст сожителя от 16 до 50 лет.");
+            return;
+        }
+        if (ageMin > ageMax) {
+            alert("Ошибка: Минимальный возраст не может превышать максимальный.");
+            return;
+        }
+        age = ageMin; // fallback
+    } else {
+        if (!age || age < 16 || age > 50) {
+            alert("Пожалуйста, укажите возраст от 16 до 50 лет.");
+            return;
+        }
     }
     
     const city = document.getElementById('formCity').value;
@@ -1235,6 +1377,8 @@ window.handleListingSubmit = async function(event) {
         budgetMax,
         budget: budgetMax, // fallback for schema / old queries
         age,
+        ageMin,
+        ageMax,
         city,
         districts,
         whatsapp,
@@ -1248,8 +1392,8 @@ window.handleListingSubmit = async function(event) {
     };
     
     if (category === 'have_room') {
-        if (formImagesList.length < 3) {
-            alert("Пожалуйста, загрузите не менее 3 фотографий квартиры.");
+        if (formImagesList.length < 3 || formImagesList.length > 6) {
+            alert("Пожалуйста, загрузите от 3 до 6 фотографий квартиры.");
             return;
         }
         
@@ -1271,11 +1415,15 @@ window.handleListingSubmit = async function(event) {
         payload.stayTerm = "any";
         payload.residentsCount = 1;
     } else {
+        if (formImagesList.length > 3) {
+            alert("Пожалуйста, загрузите не более 3 фотографий вашей анкеты.");
+            return;
+        }
         const stayTerm = document.getElementById('formStayTerm').value;
         const residentsCount = parseInt(document.getElementById('formResidentsCount').value) || 1;
         payload.address = "";
         payload.gisLink = "";
-        payload.photos = [];
+        payload.photos = formImagesList;
         payload.totalResidents = "1";
         payload.hasContract = false;
         payload.stayTerm = stayTerm;

@@ -55,6 +55,9 @@ function mapToDB(listing) {
     else if (listing.budgetMax !== undefined) dbItem.budget = listing.budgetMax;
     
     if (listing.age !== undefined) dbItem.age = listing.age;
+    if (listing.ageMin !== undefined) dbItem.age_min = listing.ageMin;
+    if (listing.ageMax !== undefined) dbItem.age_max = listing.ageMax;
+    
     if (listing.city !== undefined) dbItem.city = listing.city;
     if (listing.districts !== undefined) dbItem.districts = listing.districts;
     if (listing.whatsapp !== undefined) dbItem.whatsapp = listing.whatsapp;
@@ -73,6 +76,7 @@ function mapToDB(listing) {
     if (listing.hasContract !== undefined) dbItem.has_contract = listing.hasContract;
     if (listing.createdAt !== undefined) dbItem.created_at = listing.createdAt;
     if (listing.boostExpiredAt !== undefined) dbItem.boost_expired_at = listing.boostExpiredAt;
+    if (listing.archivedAt !== undefined) dbItem.archived_at = listing.archivedAt;
     if (listing.status !== undefined) dbItem.status = listing.status;
     
     return dbItem;
@@ -90,6 +94,8 @@ function mapFromDB(dbItem) {
         budgetMin: parseFloat(dbItem.budget_min || dbItem.budget || 0),
         budgetMax: parseFloat(dbItem.budget_max || dbItem.budget || 0),
         age: parseInt(dbItem.age || 0),
+        ageMin: parseInt(dbItem.age_min || dbItem.age || 0),
+        ageMax: parseInt(dbItem.age_max || dbItem.age || 0),
         city: dbItem.city,
         districts: dbItem.districts || [],
         whatsapp: dbItem.whatsapp,
@@ -108,6 +114,7 @@ function mapFromDB(dbItem) {
         hasContract: !!dbItem.has_contract,
         createdAt: dbItem.created_at,
         boostExpiredAt: dbItem.boost_expired_at,
+        archivedAt: dbItem.archived_at || null,
         status: dbItem.status
     };
 }
@@ -362,12 +369,12 @@ class ServerDatabase {
 
     // ARCHIVE Listing
     async archiveListing(id) {
-        return this.updateListing(id, { status: 'archived' });
+        return this.updateListing(id, { status: 'archived', archivedAt: new Date().toISOString() });
     }
 
     // REACTIVATE Listing
     async reactivateListing(id) {
-        return this.updateListing(id, { status: 'active', createdAt: new Date().toISOString() });
+        return this.updateListing(id, { status: 'active', createdAt: new Date().toISOString(), archivedAt: null });
     }
 
     // BOOST Listing
@@ -414,7 +421,7 @@ class ServerDatabase {
                             }
                         } else if (item.status === 'archived') {
                             // Check if archived for more than 3 days, delete permanently
-                            const archiveAgeMs = now - new Date(item.created_at || item.createdAt).getTime(); // Or dedicated archive timestamp if available
+                            const archiveAgeMs = now - new Date(item.archived_at || item.archivedAt || item.created_at || item.createdAt).getTime();
                             const deleteLimit = 3 * 24 * 60 * 60 * 1000;
                             if (archiveAgeMs > deleteLimit) {
                                 await this.deleteListing(item.id);
@@ -441,6 +448,7 @@ class ServerDatabase {
             if (item.status === 'active') {
                 if (!isPromo && ageMs > limitNonPromo) {
                     item.status = 'archived';
+                    item.archivedAt = new Date().toISOString();
                     changed = true;
                     console.log(`[Cache Pruning] Archived non-promoted listing: ${item.id}`);
                     updatedListings.push(item);
@@ -449,6 +457,7 @@ class ServerDatabase {
                     const bonusGracePeriod = 5 * 24 * 60 * 60 * 1000;
                     if (now > (promoExpiryMs + bonusGracePeriod)) {
                         item.status = 'archived';
+                        item.archivedAt = new Date().toISOString();
                         changed = true;
                         console.log(`[Cache Pruning] Archived expired promo listing: ${item.id}`);
                     }
@@ -459,7 +468,8 @@ class ServerDatabase {
             } else if (item.status === 'archived') {
                 // If archived > 3 days, do not push (delete permanently)
                 const deleteLimit = 3 * 24 * 60 * 60 * 1000;
-                if (ageMs > deleteLimit) {
+                const archiveAgeMs = now - new Date(item.archivedAt || item.createdAt).getTime();
+                if (archiveAgeMs > deleteLimit) {
                     changed = true;
                     console.log(`[Cache Pruning] Deleted archived listing: ${item.id}`);
                 } else {
@@ -514,6 +524,8 @@ class ServerDatabase {
                 budgetMax: haveBudget,
                 budget: haveBudget,
                 age: 18 + (i % 5),
+                ageMin: 18 + (i % 3),
+                ageMax: 20 + (i % 6),
                 city: city,
                 districts: [districts[0]],
                 whatsapp: "7707" + String(1000000 + i * 23145).substring(0, 7),
@@ -545,6 +557,8 @@ class ServerDatabase {
                 budgetMax: needBudget,
                 budget: needBudget,
                 age: 19 + (i % 4),
+                ageMin: 19 + (i % 4),
+                ageMax: 19 + (i % 4),
                 city: city,
                 districts: [districts[0]],
                 whatsapp: "7777" + String(1000000 + i * 43210).substring(0, 7),

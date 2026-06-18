@@ -15,6 +15,8 @@ let filterHasErrors = false;
 let lastFormCity = '';
 let lastAptCity = '';
 let lastSeekerCity = '';
+let scrollPositions = {};
+let prevActiveTab = 'feed';
 
 // Initialize app on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
@@ -30,6 +32,18 @@ document.addEventListener('DOMContentLoaded', () => {
     initAdmin();
     initSidebarCollapse();
     
+    // Seeker upload init
+    initSeekerPhotoUpload();
+    initSeekerPhotoPreviews();
+    
+    // Detail page back button click listener
+    const backBtn = document.getElementById('detailBackButton');
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            window.switchTab(prevActiveTab);
+        });
+    }
+    
     // Print local access guides
     printMobileAccessGuide();
     
@@ -41,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('hata_listings_changed', () => {
         if (currentActiveTab === 'feed') renderListings();
         else if (currentActiveTab === 'favorites') renderFavorites();
+        else if (currentActiveTab === 'viewed') renderViewedListings();
         
         renderUserProfile();
         renderAdminModerationList();
@@ -73,7 +88,7 @@ window.openModal = function(id) {
     const el = document.getElementById(id);
     if (el) {
         el.classList.add('open');
-        document.body.style.overflow = 'hidden';
+        document.body.classList.add('modal-open');
     }
 };
 
@@ -83,7 +98,7 @@ window.closeModal = function(id) {
         el.classList.remove('open');
         const anyOpen = document.querySelectorAll('.modal-overlay.open').length > 0;
         if (!anyOpen) {
-            document.body.style.overflow = '';
+            document.body.classList.remove('modal-open');
         }
     }
 };
@@ -398,6 +413,8 @@ function initFilters() {
     
     if (filterGender) filterGender.addEventListener('change', () => { if (!filterHasErrors) renderListings(); });
     if (filterRooms) filterRooms.addEventListener('change', () => { if (!filterHasErrors) renderListings(); });
+    const filterHideViewed = document.getElementById('filterHideViewed');
+    if (filterHideViewed) filterHideViewed.addEventListener('change', () => { if (!filterHasErrors) renderListings(); });
     
     const filterDeposit = document.getElementById('filterDeposit');
     if (filterDeposit) filterDeposit.addEventListener('change', () => { if (!filterHasErrors) renderListings(); });
@@ -535,6 +552,8 @@ function renderListings() {
     const roommateCountFilter = document.getElementById('filterRoommateCount').value;
     const hasPhotosFilterEl = document.getElementById('filterHasPhotos');
     const hasPhotosFilter = hasPhotosFilterEl ? hasPhotosFilterEl.value : 'any';
+    const hideViewedEl = document.getElementById('filterHideViewed');
+    const hideViewed = hideViewedEl ? hideViewedEl.checked : false;
     
     // Global search input
     const searchInput = document.getElementById('globalSearchInput');
@@ -547,6 +566,7 @@ function renderListings() {
     let filtered = activeListings.filter(item => {
         if (item.category !== currentCategory) return false;
         if (item.city !== cityFilter) return false;
+        if (hideViewed && isListingViewed(item.id)) return false;
         
         // Match range bounds
         const itemMin = item.budgetMin || item.budget || 0;
@@ -556,8 +576,8 @@ function renderListings() {
         if (genderFilter !== 'any' && item.gender !== genderFilter) return false;
         
         if (roomFilter !== 'any') {
-            if (roomFilter === '4plus') {
-                if (item.roomCount < 4) return false;
+            if (roomFilter === '11plus') {
+                if (item.roomCount < 11) return false;
             } else {
                 if (item.roomCount !== parseInt(roomFilter)) return false;
             }
@@ -578,10 +598,16 @@ function renderListings() {
         if (currentCategory === 'need_room') {
             if (stayTermFilter !== 'any' && item.stayTerm !== stayTermFilter) return false;
         } else {
-            if (totalResidentsFilter !== 'any' && item.totalResidents !== totalResidentsFilter) return false;
+            if (totalResidentsFilter !== 'any') {
+                if (totalResidentsFilter === '11plus') {
+                    if (item.totalResidents < 11) return false;
+                } else {
+                    if (item.totalResidents !== parseInt(totalResidentsFilter)) return false;
+                }
+            }
             if (roommateCountFilter !== 'any') {
-                if (roommateCountFilter === '4plus') {
-                    if (item.roommateCount < 4) return false;
+                if (roommateCountFilter === '11plus') {
+                    if (item.roommateCount < 11) return false;
                 } else {
                     if (item.roommateCount !== parseInt(roommateCountFilter)) return false;
                 }
@@ -630,114 +656,8 @@ function renderListings() {
         lucide.createIcons();
         return;
     }
-    
-    const user = db.getCurrentUser();
-    const favorites = user ? db.getFavorites(user.id) : [];
 
-    grid.innerHTML = filtered.map(item => {
-        const isBoosted = item.boostExpiredAt && new Date(item.boostExpiredAt).getTime() > now;
-        const formattedDate = formatListingDate(item.createdAt);
-        
-        const isFav = favorites.includes(item.id);
-        const heartButton = `
-            <button class="favorite-btn ${isFav ? 'active' : ''}" onclick="toggleFavoriteListing(event, '${item.id}')" title="В избранное">
-                <i data-lucide="heart"></i>
-            </button>
-        `;
-
-        let carouselHTML = '';
-        if (item.photos && item.photos.length > 0) {
-            carouselHTML = `
-                <div class="card-gallery">
-                    ${heartButton}
-                    <img class="card-img" src="${item.photos[0]}" alt="Квартира">
-                    <div class="gallery-nav">
-                        ${item.photos.map((_, i) => `<span class="gallery-dot ${i === 0 ? 'active' : ''}"></span>`).join('')}
-                    </div>
-                </div>
-            `;
-        } else {
-            carouselHTML = `
-                <div class="card-gallery">
-                    ${heartButton}
-                    <div class="no-photo">
-                        <i data-lucide="camera" class="no-photo-icon"></i>
-                        <span>Без фотографий</span>
-                    </div>
-                </div>
-            `;
-        }
-        
-        let tagOccupation = '';
-        if (item.occupation === 'student') tagOccupation = 'Учеба';
-        else if (item.occupation === 'student_work') tagOccupation = 'Учеба + Работа';
-        else if (item.occupation === 'work') tagOccupation = 'Работает';
-        else tagOccupation = 'Не занят';
-
-        let genderLabel = '';
-        if (item.gender === 'male') genderLabel = 'Парень';
-        else if (item.gender === 'female') genderLabel = 'Девушка';
-        else genderLabel = 'Любой пол';
-        
-        const distStr = item.districts && item.districts.length > 0
-            ? `<span class="card-tag accent"><i data-lucide="map-pin" style="width:10px; height:10px; margin-right:2px; vertical-align:middle;"></i>${item.districts.join(', ')}</span>`
-            : '';
-
-        const mapButton = (item.gisLink && item.category === 'have_room') 
-            ? `<a href="${item.gisLink}" target="_blank" class="btn btn-secondary"><i data-lucide="map"></i><span>В 2GIS</span></a>`
-            : '';
-            
-        const cleanPhone = item.whatsapp.startsWith('8') ? '7' + item.whatsapp.substring(1) : item.whatsapp;
-        const waLink = `https://wa.me/7${cleanPhone.replace(/^7/, '')}?text=Привет!%20Я%20насчет%20объявления%20на%20Hata.kz`;
-
-        return `
-            <div class="hata-card ${isBoosted ? 'promoted' : ''}">
-                ${isBoosted ? `<span class="promoted-tag">В ТОПЕ</span>` : ''}
-                ${carouselHTML}
-                <div class="card-body">
-                    <div class="card-top">
-                        <img class="owner-img" src="${item.ownerAvatar}" alt="">
-                        <div class="owner-meta">
-                            <span class="owner-name">${item.ownerName}</span>
-                            <span class="listing-date">${formattedDate}</span>
-                        </div>
-                    </div>
-                    
-                    <div class="card-title">
-                        ${(item.budgetMin && item.budgetMax && item.budgetMin !== item.budgetMax) ? 
-                          `от ${formatNumberWithSpaces(item.budgetMin)} до ${formatNumberWithSpaces(item.budgetMax)} ₸` : 
-                          `${formatNumberWithSpaces(item.budgetMax || item.budget || 0)} ₸`} 
-                        <span>/ мес</span>
-                    </div>
-                    
-                    <div class="card-tags">
-                        ${item.category === 'have_room'
-                            ? `<span class="card-tag accent">Ищу сожителя, ${item.ageMin}-${item.ageMax} лет</span><span class="card-tag">Пол: ${genderLabel}</span>`
-                            : `<span class="card-tag accent">${genderLabel}, ${item.age} лет</span>`
-                        }
-                        <span class="card-tag">${tagOccupation}</span>
-                        <span class="card-tag">${item.roomCount === 'any' ? 'Любая комн.' : item.roomCount + ' комн.'}</span>
-                        ${item.hasDeposit ? `<span class="card-tag accent">${item.category === 'need_room' ? 'Готов к депозиту' : 'Депозит'}</span>` : ''}
-                        ${item.category === 'have_room' && item.totalResidents ? `<span class="card-tag">Жильцов: ${item.totalResidents}</span>` : ''}
-                        ${item.category === 'have_room' && item.roommateCount ? `<span class="card-tag">Ищут: ${item.roommateCount}</span>` : ''}
-                        ${item.category === 'need_room' && item.stayTerm ? `<span class="card-tag">Срок: ${getStayTermLabel(item.stayTerm)}</span>` : ''}
-                        ${item.hasContract ? '<span class="card-tag">Договор</span>' : ''}
-                        ${distStr}
-                    </div>
-                    
-                    <p class="card-desc">${item.description}</p>
-                    
-                    <div class="card-footer">
-                        <a href="${waLink}" target="_blank" class="btn btn-primary" style="background:#25d366; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.25);">
-                            <i data-lucide="message-square"></i>
-                            <span>WhatsApp</span>
-                        </a>
-                        ${mapButton}
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
+    grid.innerHTML = renderCardsHTML(filtered);
     
     // Load icons
     lucide.createIcons();
@@ -1768,6 +1688,11 @@ let currentActiveTab = 'feed';
 window.switchTab = function(tabId) {
     const user = db.getCurrentUser();
     
+    // Save scroll position of outgoing tab
+    if (currentActiveTab && ['feed', 'favorites', 'viewed', 'profile'].includes(currentActiveTab)) {
+        scrollPositions[currentActiveTab] = window.scrollY;
+    }
+    
     // Security check for admin page
     if (tabId === 'admin') {
         if (!user || !user.isAdmin) {
@@ -1807,6 +1732,8 @@ window.switchTab = function(tabId) {
                 if (seekerForm) seekerForm.reset();
                 document.getElementById('seekerListingId').value = '';
                 selectedSeekerDistricts.clear();
+                seekerImagesList = [];
+                initSeekerPhotoPreviews();
                 updateSeekerDistricts();
                 document.getElementById('createSeekerTitle').textContent = 'Создать объявление: Ищу квартиру';
                 document.getElementById('seekerSubmitBtn').textContent = 'Опубликовать (0 ₸)';
@@ -1831,6 +1758,12 @@ window.switchTab = function(tabId) {
         }
         return;
     }
+
+    // Dismiss all active modals and body scroll lock
+    document.querySelectorAll('.modal-overlay.open').forEach(modal => {
+        modal.classList.remove('open');
+    });
+    document.body.classList.remove('modal-open');
 
     currentActiveTab = tabId;
 
@@ -1864,17 +1797,35 @@ window.switchTab = function(tabId) {
             item.classList.remove('active');
         }
     });
+    
+    // Handle bottom nav 'Создать' icon accent highlighting
+    const createBtn = document.getElementById('mobileCreateBtn');
+    if (createBtn) {
+        if (tabId === 'createApartment' || tabId === 'createSeeker') {
+            createBtn.classList.add('active');
+        } else {
+            createBtn.classList.remove('active');
+        }
+    }
 
     // Render page content
     if (tabId === 'feed') {
         renderListings();
     } else if (tabId === 'favorites') {
         renderFavorites();
+    } else if (tabId === 'viewed') {
+        renderViewedListings();
     } else if (tabId === 'profile') {
         renderUserProfile();
     } else if (tabId === 'admin') {
         renderAdminModerationList();
     }
+
+    // Scroll restoration inside setTimeout to resolve layout height racing bugs (50ms delay)
+    setTimeout(() => {
+        const savedPos = scrollPositions[tabId] || 0;
+        window.scrollTo({ top: savedPos, behavior: 'instant' });
+    }, 50);
 
     lucide.createIcons();
 };
@@ -2003,105 +1954,7 @@ function renderFavorites() {
         return;
     }
     
-    const now = new Date().getTime();
-    grid.innerHTML = filtered.map(item => {
-        const isBoosted = item.boostExpiredAt && new Date(item.boostExpiredAt).getTime() > now;
-        const formattedDate = formatListingDate(item.createdAt);
-        
-        const heartButton = `
-            <button class="favorite-btn active" onclick="toggleFavoriteListing(event, '${item.id}')" title="Убрать из избранного">
-                <i data-lucide="heart"></i>
-            </button>
-        `;
-
-        let carouselHTML = '';
-        if (item.photos && item.photos.length > 0) {
-            carouselHTML = `
-                <div class="card-gallery">
-                    ${heartButton}
-                    <img class="card-img" src="${item.photos[0]}" alt="Квартира">
-                    <div class="gallery-nav">
-                        ${item.photos.map((_, i) => `<span class="gallery-dot ${i === 0 ? 'active' : ''}"></span>`).join('')}
-                    </div>
-                </div>
-            `;
-        } else {
-            carouselHTML = `
-                <div class="card-gallery">
-                    ${heartButton}
-                    <div class="no-photo">
-                        <i data-lucide="camera" class="no-photo-icon"></i>
-                        <span>Без фотографий</span>
-                    </div>
-                </div>
-            `;
-        }
-        
-        let tagOccupation = '';
-        if (item.occupation === 'student') tagOccupation = 'Учеба';
-        else if (item.occupation === 'student_work') tagOccupation = 'Учеба + Работа';
-        else if (item.occupation === 'work') tagOccupation = 'Работает';
-        else tagOccupation = 'Не занят';
-
-        const genderLabel = item.gender === 'male' ? 'Парень' : 'Девушка';
-        
-        const distStr = item.districts && item.districts.length > 0
-            ? `<span class="card-tag accent"><i data-lucide="map-pin" style="width:10px; height:10px; margin-right:2px; vertical-align:middle;"></i>${item.districts.join(', ')}</span>`
-            : '';
-
-        const mapButton = (item.gisLink && item.category === 'have_room') 
-            ? `<a href="${item.gisLink}" target="_blank" class="btn btn-secondary"><i data-lucide="map"></i><span>В 2GIS</span></a>`
-            : '';
-            
-        const cleanPhone = item.whatsapp.startsWith('8') ? '7' + item.whatsapp.substring(1) : item.whatsapp;
-        const waLink = `https://wa.me/7${cleanPhone.replace(/^7/, '')}?text=Привет!%20Я%20насчет%20объявления%20на%20Hata.kz`;
-
-        return `
-            <div class="hata-card ${isBoosted ? 'promoted' : ''}">
-                ${isBoosted ? `<span class="promoted-tag">В ТОПЕ</span>` : ''}
-                ${carouselHTML}
-                <div class="card-body">
-                    <div class="card-top">
-                        <img class="owner-img" src="${item.ownerAvatar}" alt="">
-                        <div class="owner-meta">
-                            <span class="owner-name">${item.ownerName}</span>
-                            <span class="listing-date">${formattedDate}</span>
-                        </div>
-                    </div>
-                    
-                    <div class="card-title">
-                        ${(item.budgetMin && item.budgetMax && item.budgetMin !== item.budgetMax) ? 
-                          `от ${formatNumberWithSpaces(item.budgetMin)} до ${formatNumberWithSpaces(item.budgetMax)} ₸` : 
-                          `${formatNumberWithSpaces(item.budgetMax || item.budget || 0)} ₸`} 
-                        <span>/ мес</span>
-                    </div>
-                    
-                    <div class="card-tags">
-                        <span class="card-tag accent">${genderLabel}, ${item.age} лет</span>
-                        <span class="card-tag">${tagOccupation}</span>
-                        <span class="card-tag">${item.roomCount === 'any' ? 'Любая комн.' : item.roomCount + ' комн.'}</span>
-                        ${item.hasDeposit ? `<span class="card-tag accent">${item.category === 'need_room' ? 'Готов к депозиту' : 'Депозит'}</span>` : ''}
-                        ${item.category === 'have_room' && item.totalResidents ? `<span class="card-tag">Жильцов: ${item.totalResidents}</span>` : ''}
-                        ${item.category === 'have_room' && item.roommateCount ? `<span class="card-tag">Ищут: ${item.roommateCount}</span>` : ''}
-                        ${item.category === 'need_room' && item.stayTerm ? `<span class="card-tag">Срок: ${getStayTermLabel(item.stayTerm)}</span>` : ''}
-                        ${item.hasContract ? '<span class="card-tag">Договор</span>' : ''}
-                        ${distStr}
-                    </div>
-                    
-                    <p class="card-desc">${item.description}</p>
-                    
-                    <div class="card-footer">
-                        <a href="${waLink}" target="_blank" class="btn btn-primary" style="background:#25d366; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.25);">
-                            <i data-lucide="message-square"></i>
-                            <span>WhatsApp</span>
-                        </a>
-                        ${mapButton}
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-    
+    grid.innerHTML = renderCardsHTML(filtered);
     lucide.createIcons();
 }
 
@@ -2273,110 +2126,182 @@ window.updateSeekerDistricts = function() {
     validateSeekerForm();
 };
 
-window.validateApartmentForm = function() {
+window.validateApartmentForm = function(event) {
     const submitBtn = document.getElementById('aptSubmitBtn');
-    if (!submitBtn) return;
+    if (submitBtn) submitBtn.disabled = false;
     
-    const city = document.getElementById('aptCity').value;
-    const address = document.getElementById('aptAddress').value.trim();
-    const gisLink = document.getElementById('aptGisLink').value.trim();
-    const budgetMin = parseFormattedNumber(document.getElementById('aptBudgetMin').value);
-    const budgetMax = parseFormattedNumber(document.getElementById('aptBudgetMax').value);
-    const totalResidents = document.getElementById('aptTotalResidents').value;
-    const roommateCount = document.getElementById('aptRoommateCount').value;
-    const roomCount = document.getElementById('aptRoomCount').value;
-    const ageMin = document.getElementById('aptAgeMin').value;
-    const ageMax = document.getElementById('aptAgeMax').value;
-    const contract = document.getElementById('aptContract').value;
-    const deposit = document.getElementById('aptDeposit').value;
-    const occupation = document.getElementById('aptOccupation').value;
-    const gender = document.getElementById('aptGender').value;
-    const genderPref = document.getElementById('aptGenderPref').value;
-    const whatsapp = document.getElementById('aptWhatsapp').value.replace(/\D/g, '');
-    const description = document.getElementById('aptDescription').value.trim();
-    
-    const cityInfo = HataConfig.cities[city];
-    const hasDistricts = cityInfo ? cityInfo.hasDistricts : false;
-    
-    let isValid = true;
-    
-    if (!city) isValid = false;
-    if (hasDistricts && selectedAptDistricts.size === 0) isValid = false;
-    if (!address) isValid = false;
-    if (!gisLink || (!gisLink.startsWith('https://2gis.kz/') && !gisLink.startsWith('https://go.2gis.com/'))) isValid = false;
-    if (isNaN(budgetMin) || budgetMin < 10000 || budgetMin > 1000000) isValid = false;
-    if (isNaN(budgetMax) || budgetMax < 10000 || budgetMax > 1000000) isValid = false;
-    if (budgetMin > budgetMax) isValid = false;
-    if (!totalResidents) isValid = false;
-    if (!roommateCount) isValid = false;
-    if (!roomCount) isValid = false;
-    if (!ageMin || !ageMax || parseInt(ageMin) > parseInt(ageMax)) isValid = false;
-    if (!contract) isValid = false;
-    if (!deposit) isValid = false;
-    if (!occupation) isValid = false;
-    if (!gender) isValid = false;
-    if (!genderPref) isValid = false;
-    if (whatsapp.length !== 10) isValid = false;
-    if (!description) isValid = false;
-    
-    submitBtn.disabled = !isValid;
+    if (event && event.target) {
+        event.target.classList.remove('is-invalid');
+        if (event.target.type === 'checkbox') {
+            const wrapper = document.getElementById('aptDistrictsWrapper');
+            if (wrapper) wrapper.classList.remove('is-invalid');
+        }
+    }
 };
 
-window.validateSeekerForm = function() {
+window.validateSeekerForm = function(event) {
     const submitBtn = document.getElementById('seekerSubmitBtn');
-    if (!submitBtn) return;
+    if (submitBtn) submitBtn.disabled = false;
     
-    const city = document.getElementById('seekerCity').value;
-    const budgetMin = parseFormattedNumber(document.getElementById('seekerBudgetMin').value);
-    const budgetMax = parseFormattedNumber(document.getElementById('seekerBudgetMax').value);
-    const age = document.getElementById('seekerAge').value;
-    const residentsCount = document.getElementById('seekerResidentsCount').value;
-    const stayTerm = document.getElementById('seekerStayTerm').value;
-    const deposit = document.getElementById('seekerDeposit').value;
-    const occupation = document.getElementById('seekerOccupation').value;
-    const gender = document.getElementById('seekerGender').value;
-    const genderPref = document.getElementById('seekerGenderPref').value;
-    const whatsapp = document.getElementById('seekerWhatsapp').value.replace(/\D/g, '');
-    const roomCount = document.getElementById('seekerRoomCount').value;
-    const roommateCount = document.getElementById('seekerRoommateCount').value;
-    const description = document.getElementById('seekerDescription').value.trim();
-    
-    const cityInfo = HataConfig.cities[city];
-    const hasDistricts = cityInfo ? cityInfo.hasDistricts : false;
-    
+    if (event && event.target) {
+        event.target.classList.remove('is-invalid');
+        if (event.target.type === 'checkbox') {
+            const wrapper = document.getElementById('seekerDistrictsWrapper');
+            if (wrapper) wrapper.classList.remove('is-invalid');
+        }
+    }
+};
+
+window.checkApartmentValidity = function() {
     let isValid = true;
     
-    if (!city) isValid = false;
-    if (hasDistricts && selectedSeekerDistricts.size === 0) isValid = false;
-    if (isNaN(budgetMin) || budgetMin < 10000 || budgetMin > 1000000) isValid = false;
-    if (isNaN(budgetMax) || budgetMax < 10000 || budgetMax > 1000000) isValid = false;
-    if (budgetMin > budgetMax) isValid = false;
-    if (!age) isValid = false;
-    if (!residentsCount) isValid = false;
-    if (!stayTerm) isValid = false;
-    if (!deposit) isValid = false;
-    if (!occupation) isValid = false;
-    if (!gender) isValid = false;
-    if (!genderPref) isValid = false;
-    if (whatsapp.length !== 10) isValid = false;
-    if (!roomCount) isValid = false;
-    if (!roommateCount) isValid = false;
-    if (!description) isValid = false;
+    const fields = [
+        { id: 'aptCity', check: (val) => !!val },
+        { id: 'aptAddress', check: (val) => !!val.trim() },
+        { id: 'aptGisLink', check: (val) => !!val.trim() && (val.startsWith('https://2gis.kz/') || val.startsWith('https://go.2gis.com/')) },
+        { id: 'aptBudgetMin', check: () => {
+            const min = parseFormattedNumber(document.getElementById('aptBudgetMin').value);
+            const max = parseFormattedNumber(document.getElementById('aptBudgetMax').value);
+            return !isNaN(min) && min >= 10000 && min <= 1000000 && min <= max;
+        }},
+        { id: 'aptBudgetMax', check: () => {
+            const min = parseFormattedNumber(document.getElementById('aptBudgetMin').value);
+            const max = parseFormattedNumber(document.getElementById('aptBudgetMax').value);
+            return !isNaN(max) && max >= 10000 && max <= 1000000 && min <= max;
+        }},
+        { id: 'aptTotalResidents', check: (val) => !!val },
+        { id: 'aptRoommateCount', check: (val) => !!val },
+        { id: 'aptRoomCount', check: (val) => !!val },
+        { id: 'aptAgeMin', check: () => {
+            const min = parseInt(document.getElementById('aptAgeMin').value);
+            const max = parseInt(document.getElementById('aptAgeMax').value);
+            return !isNaN(min) && !isNaN(max) && min <= max;
+        }},
+        { id: 'aptAgeMax', check: () => {
+            const min = parseInt(document.getElementById('aptAgeMin').value);
+            const max = parseInt(document.getElementById('aptAgeMax').value);
+            return !isNaN(min) && !isNaN(max) && min <= max;
+        }},
+        { id: 'aptContract', check: (val) => !!val },
+        { id: 'aptDeposit', check: (val) => !!val },
+        { id: 'aptOccupation', check: (val) => !!val },
+        { id: 'aptGender', check: (val) => !!val },
+        { id: 'aptGenderPref', check: (val) => !!val },
+        { id: 'aptWhatsapp', check: () => {
+            const val = document.getElementById('aptWhatsapp').value.replace(/\D/g, '');
+            return val.length === 10;
+        }}
+    ];
     
-    submitBtn.disabled = !isValid;
+    fields.forEach(f => {
+        const el = document.getElementById(f.id);
+        if (el) {
+            const valid = f.check(el.value);
+            if (!valid) {
+                el.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                el.classList.remove('is-invalid');
+            }
+        }
+    });
+    
+    const city = document.getElementById('aptCity').value;
+    const cityInfo = HataConfig.cities[city];
+    const dw = document.getElementById('aptDistrictsWrapper');
+    if (cityInfo && cityInfo.hasDistricts && selectedAptDistricts.size === 0) {
+        if (dw) dw.classList.add('is-invalid');
+        isValid = false;
+    } else if (dw) {
+        dw.classList.remove('is-invalid');
+    }
+    
+    const previews = document.getElementById('aptPhotoPreviews');
+    if (aptImagesList.length < 3 || aptImagesList.length > 6) {
+        if (previews) previews.classList.add('is-invalid');
+        isValid = false;
+    } else if (previews) {
+        previews.classList.remove('is-invalid');
+    }
+    
+    return isValid;
+};
+
+window.checkSeekerValidity = function() {
+    let isValid = true;
+    
+    const fields = [
+        { id: 'seekerCity', check: (val) => !!val },
+        { id: 'seekerBudgetMin', check: () => {
+            const min = parseFormattedNumber(document.getElementById('seekerBudgetMin').value);
+            const max = parseFormattedNumber(document.getElementById('seekerBudgetMax').value);
+            return !isNaN(min) && min >= 10000 && min <= 1000000 && min <= max;
+        }},
+        { id: 'seekerBudgetMax', check: () => {
+            const min = parseFormattedNumber(document.getElementById('seekerBudgetMin').value);
+            const max = parseFormattedNumber(document.getElementById('seekerBudgetMax').value);
+            return !isNaN(max) && max >= 10000 && max <= 1000000 && min <= max;
+        }},
+        { id: 'seekerAge', check: (val) => !!val },
+        { id: 'seekerResidentsCount', check: (val) => !!val },
+        { id: 'seekerStayTerm', check: (val) => !!val },
+        { id: 'seekerDeposit', check: (val) => !!val },
+        { id: 'seekerOccupation', check: (val) => !!val },
+        { id: 'seekerGender', check: (val) => !!val },
+        { id: 'seekerGenderPref', check: (val) => !!val },
+        { id: 'seekerRoomCount', check: (val) => !!val },
+        { id: 'seekerRoommateCount', check: (val) => !!val },
+        { id: 'seekerWhatsapp', check: () => {
+            const val = document.getElementById('seekerWhatsapp').value.replace(/\D/g, '');
+            return val.length === 10;
+        }}
+    ];
+    
+    fields.forEach(f => {
+        const el = document.getElementById(f.id);
+        if (el) {
+            const valid = f.check(el.value);
+            if (!valid) {
+                el.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                el.classList.remove('is-invalid');
+            }
+        }
+    });
+    
+    const city = document.getElementById('seekerCity').value;
+    const cityInfo = HataConfig.cities[city];
+    const dw = document.getElementById('seekerDistrictsWrapper');
+    if (cityInfo && cityInfo.hasDistricts && selectedSeekerDistricts.size === 0) {
+        if (dw) dw.classList.add('is-invalid');
+        isValid = false;
+    } else if (dw) {
+        dw.classList.remove('is-invalid');
+    }
+    
+    const previews = document.getElementById('seekerPhotoPreviews');
+    if (seekerImagesList.length > 3) {
+        if (previews) previews.classList.add('is-invalid');
+        isValid = false;
+    } else if (previews) {
+        previews.classList.remove('is-invalid');
+    }
+    
+    return isValid;
 };
 
 function initFormValidationListeners() {
     const aptForm = document.getElementById('createApartmentForm');
     if (aptForm) {
-        aptForm.querySelectorAll('input, select, textarea').forEach(el => {
+        aptForm.querySelectorAll('input, select, textarea, checkbox').forEach(el => {
             el.addEventListener('input', validateApartmentForm);
             el.addEventListener('change', validateApartmentForm);
         });
     }
     const seekerForm = document.getElementById('createSeekerForm');
     if (seekerForm) {
-        seekerForm.querySelectorAll('input, select, textarea').forEach(el => {
+        seekerForm.querySelectorAll('input, select, textarea, checkbox').forEach(el => {
             el.addEventListener('input', validateSeekerForm);
             el.addEventListener('change', validateSeekerForm);
         });
@@ -2448,6 +2373,11 @@ function initAptPhotoUpload() {
 
 window.handleApartmentSubmit = async function(event) {
     event.preventDefault();
+    
+    if (!checkApartmentValidity()) {
+        alert("Пожалуйста, заполните все обязательные поля корректно.");
+        return;
+    }
     
     const id = document.getElementById('aptListingId').value;
     const city = document.getElementById('aptCity').value;
@@ -2530,6 +2460,11 @@ window.handleApartmentSubmit = async function(event) {
 window.handleSeekerSubmit = async function(event) {
     event.preventDefault();
     
+    if (!checkSeekerValidity()) {
+        alert("Пожалуйста, заполните все обязательные поля корректно.");
+        return;
+    }
+    
     const id = document.getElementById('seekerListingId').value;
     const city = document.getElementById('seekerCity').value;
     const budgetMin = parseFormattedNumber(document.getElementById('seekerBudgetMin').value);
@@ -2605,3 +2540,353 @@ window.handleSeekerSubmit = async function(event) {
     }
 };
 
+
+window.initSeekerPhotoPreviews = function() {
+    const container = document.getElementById('seekerPhotoPreviews');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    seekerImagesList.forEach((img, idx) => {
+        const box = document.createElement('div');
+        box.className = 'img-preview-box';
+        box.style.backgroundImage = `url(${img})`;
+        box.style.backgroundSize = 'cover';
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'img-remove-btn';
+        removeBtn.innerHTML = '&times;';
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            seekerImagesList.splice(idx, 1);
+            initSeekerPhotoPreviews();
+            validateSeekerForm();
+        });
+        
+        box.appendChild(removeBtn);
+        container.appendChild(box);
+    });
+    
+    if (seekerImagesList.length < 3) {
+        const addBox = document.createElement('div');
+        addBox.className = 'img-preview-box';
+        addBox.textContent = '+';
+        addBox.addEventListener('click', () => {
+            const fileInput = document.getElementById('seekerPhotoUploadInput');
+            if (fileInput) fileInput.click();
+        });
+        container.appendChild(addBox);
+    }
+};
+
+function initSeekerPhotoUpload() {
+    const fileInput = document.getElementById('seekerPhotoUploadInput');
+    if (!fileInput) return;
+    fileInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        const remaining = 3 - seekerImagesList.length;
+        const toProcess = files.slice(0, remaining);
+        
+        let processed = 0;
+        toProcess.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                seekerImagesList.push(event.target.result);
+                processed++;
+                if (processed === toProcess.length) {
+                    initSeekerPhotoPreviews();
+                    validateSeekerForm();
+                    fileInput.value = '';
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+}
+
+function isListingViewed(id) {
+    let viewed = [];
+    try {
+        viewed = JSON.parse(localStorage.getItem('hata_viewed_listings')) || [];
+    } catch (e) {
+        viewed = [];
+    }
+    return viewed.includes(id);
+}
+
+function markListingAsViewed(id) {
+    let viewed = [];
+    try {
+        viewed = JSON.parse(localStorage.getItem('hata_viewed_listings')) || [];
+    } catch (e) {
+        viewed = [];
+    }
+    if (!viewed.includes(id)) {
+        viewed.push(id);
+        localStorage.setItem('hata_viewed_listings', JSON.stringify(viewed));
+        window.dispatchEvent(new Event('hata_listings_changed'));
+    }
+}
+
+function renderCardsHTML(filtered) {
+    const now = new Date().getTime();
+    const user = db.getCurrentUser();
+    const favorites = user ? db.getFavorites(user.id) : [];
+
+    return filtered.map(item => {
+        const isBoosted = item.boostExpiredAt && new Date(item.boostExpiredAt).getTime() > now;
+        const formattedDate = formatListingDate(item.createdAt);
+        const viewed = isListingViewed(item.id);
+        
+        const isFav = favorites.includes(item.id);
+        const heartButton = `
+            <button class="favorite-btn ${isFav ? 'active' : ''}" onclick="toggleFavoriteListing(event, '${item.id}')" title="В избранное">
+                <i data-lucide="heart"></i>
+            </button>
+        `;
+
+        let carouselHTML = '';
+        if (item.photos && item.photos.length > 0) {
+            carouselHTML = `
+                <div class="card-gallery">
+                    ${heartButton}
+                    <img class="card-img" src="${item.photos[0]}" alt="Квартира">
+                    <div class="gallery-nav">
+                        ${item.photos.map((_, i) => `<span class="gallery-dot ${i === 0 ? 'active' : ''}"></span>`).join('')}
+                    </div>
+                </div>
+            `;
+        } else {
+            carouselHTML = `
+                <div class="card-gallery">
+                    ${heartButton}
+                    <div class="no-photo">
+                        <i data-lucide="camera" class="no-photo-icon"></i>
+                        <span>Без фотографий</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        let tagOccupation = '';
+        if (item.occupation === 'student') tagOccupation = 'Учеба';
+        else if (item.occupation === 'student_work') tagOccupation = 'Учеба + Работа';
+        else if (item.occupation === 'work') tagOccupation = 'Работает';
+        else tagOccupation = 'Не занят';
+
+        let genderLabel = '';
+        if (item.gender === 'male') genderLabel = 'Парень';
+        else if (item.gender === 'female') genderLabel = 'Девушка';
+        else genderLabel = 'Любой пол';
+        
+        const distStr = item.districts && item.districts.length > 0
+            ? `<span class="card-tag accent"><i data-lucide="map-pin" style="width:10px; height:10px; margin-right:2px; vertical-align:middle;"></i>${item.districts.join(', ')}</span>`
+            : '';
+
+        const mapButton = (item.gisLink && item.category === 'have_room') 
+            ? `<a href="${item.gisLink}" target="_blank" class="btn btn-secondary" onclick="event.stopPropagation();"><i data-lucide="map"></i><span>В 2GIS</span></a>`
+            : '';
+            
+        const cleanPhone = item.whatsapp.startsWith('8') ? '7' + item.whatsapp.substring(1) : item.whatsapp;
+        const waLink = `https://wa.me/7${cleanPhone.replace(/^7/, '')}?text=Привет!%20Я%20насчет%20объявления%20на%20Hata.kz`;
+
+        const viewedBadge = viewed ? `<span class="card-tag" style="background-color: rgba(255, 255, 255, 0.05); border-color: var(--border-color); color: var(--text-muted);"><i data-lucide="eye" style="width:10px; height:10px; margin-right:2px; vertical-align:middle;"></i>Просмотрено</span>` : '';
+
+        return `
+            <div class="hata-card ${isBoosted ? 'promoted' : ''}" onclick="viewListingDetail('${item.id}')" style="cursor: pointer;">
+                ${isBoosted ? `<span class="promoted-tag">В ТОПЕ</span>` : ''}
+                ${carouselHTML}
+                <div class="card-body">
+                    <div class="card-top">
+                        <img class="owner-img" src="${item.ownerAvatar}" alt="">
+                        <div class="owner-meta">
+                            <span class="owner-name">${item.ownerName}</span>
+                            <span class="listing-date">${formattedDate}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card-title">
+                        ${(item.budgetMin && item.budgetMax && item.budgetMin !== item.budgetMax) ? 
+                          `от ${formatNumberWithSpaces(item.budgetMin)} до ${formatNumberWithSpaces(item.budgetMax)} ₸` : 
+                          `${formatNumberWithSpaces(item.budgetMax || item.budget || 0)} ₸`} 
+                        <span>/ мес</span>
+                    </div>
+                    
+                    <div class="card-tags">
+                        ${item.category === 'have_room'
+                            ? `<span class="card-tag accent">Ищу сожителя, ${item.ageMin}-${item.ageMax} лет</span><span class="card-tag">Пол: ${genderLabel}</span>`
+                            : `<span class="card-tag accent">${genderLabel}, ${item.age} лет</span>`
+                        }
+                        <span class="card-tag">${tagOccupation}</span>
+                        <span class="card-tag">${item.roomCount === 'any' ? 'Любая комн.' : item.roomCount + ' комн.'}</span>
+                        ${item.hasDeposit ? `<span class="card-tag accent">${item.category === 'need_room' ? 'Готов к депозиту' : 'Депозит'}</span>` : ''}
+                        ${item.category === 'have_room' && item.totalResidents ? `<span class="card-tag">Жильцов: ${item.totalResidents}</span>` : ''}
+                        ${item.category === 'have_room' && item.roommateCount ? `<span class="card-tag">Ищут: ${item.roommateCount}</span>` : ''}
+                        ${item.category === 'need_room' && item.stayTerm ? `<span class="card-tag">Срок: ${getStayTermLabel(item.stayTerm)}</span>` : ''}
+                        ${item.hasContract ? '<span class="card-tag">Договор</span>' : ''}
+                        ${viewedBadge}
+                        ${distStr}
+                    </div>
+                    
+                    <p class="card-desc">${item.description}</p>
+                    
+                    <div class="card-footer">
+                        <a href="${waLink}" target="_blank" class="btn btn-primary" style="background:#25d366; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.25);" onclick="event.stopPropagation();">
+                            <i data-lucide="message-square"></i>
+                            <span>WhatsApp</span>
+                        </a>
+                        ${mapButton}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderViewedListings() {
+    const grid = document.getElementById('viewedGrid');
+    const countSpan = document.getElementById('viewedCount');
+    if (!grid) return;
+    
+    let viewedIds = [];
+    try {
+        viewedIds = JSON.parse(localStorage.getItem('hata_viewed_listings')) || [];
+    } catch (e) {
+        viewedIds = [];
+    }
+    
+    if (countSpan) countSpan.textContent = viewedIds.length;
+    
+    if (viewedIds.length === 0) {
+        grid.innerHTML = `
+            <div class="empty-feed form-full">
+                <div class="empty-icon"><i data-lucide="eye" style="width:48px; height:48px;"></i></div>
+                <div class="empty-title">Список просмотренных пуст</div>
+                <p>Здесь будут отображаться объявления, которые вы открывали для просмотра.</p>
+            </div>
+        `;
+        lucide.createIcons();
+        return;
+    }
+    
+    const activeListings = db.getListings();
+    const filtered = activeListings.filter(item => viewedIds.includes(item.id));
+    
+    if (filtered.length === 0) {
+        grid.innerHTML = `
+            <div class="empty-feed form-full">
+                <div class="empty-icon"><i data-lucide="eye" style="width:48px; height:48px;"></i></div>
+                <div class="empty-title">Список просмотренных пуст</div>
+                <p>Все ранее просмотренные объявления были перемещены в архив.</p>
+            </div>
+        `;
+        lucide.createIcons();
+        return;
+    }
+    
+    filtered.sort((a, b) => viewedIds.indexOf(b.id) - viewedIds.indexOf(a.id));
+    
+    grid.innerHTML = renderCardsHTML(filtered);
+    lucide.createIcons();
+}
+
+window.viewListingDetail = function(listingId) {
+    const all = db.getListings().concat(db.getUserListings(db.getCurrentUser()?.id || ''));
+    const item = all.find(x => x.id === listingId);
+    if (!item) return;
+    
+    markListingAsViewed(listingId);
+    
+    prevActiveTab = currentActiveTab;
+    
+    // Switch view
+    window.switchTab('listingDetail');
+    
+    const content = document.getElementById('listingDetailContent');
+    if (!content) return;
+    
+    const formattedDate = formatListingDate(item.createdAt);
+    let tagOccupation = '';
+    if (item.occupation === 'student') tagOccupation = 'Учеба';
+    else if (item.occupation === 'student_work') tagOccupation = 'Учеба + Работа';
+    else if (item.occupation === 'work') tagOccupation = 'Работает';
+    else tagOccupation = 'Не занят';
+
+    let genderLabel = '';
+    if (item.gender === 'male') genderLabel = 'Парень';
+    else if (item.gender === 'female') genderLabel = 'Девушка';
+    else genderLabel = 'Любой пол';
+    
+    const cleanPhone = item.whatsapp.startsWith('8') ? '7' + item.whatsapp.substring(1) : item.whatsapp;
+    const waLink = `https://wa.me/7${cleanPhone.replace(/^7/, '')}?text=Привет!%20Я%20насчет%20объявления%20на%20Hata.kz`;
+    const mapButton = (item.gisLink && item.category === 'have_room') 
+        ? `<a href="${item.gisLink}" target="_blank" class="btn btn-secondary" style="min-height:44px; display:inline-flex; align-items:center; gap:0.5rem;"><i data-lucide="map"></i><span>Открыть в 2GIS</span></a>`
+        : '';
+
+    let galleryHTML = '';
+    if (item.photos && item.photos.length > 0) {
+        galleryHTML = `
+            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
+                ${item.photos.map(p => `<img src="${p}" style="width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:var(--radius-md); border:1px solid var(--border-color);" alt="Фото">`).join('')}
+            </div>
+        `;
+    } else {
+        galleryHTML = `
+            <div style="padding:4rem 2rem; background:rgba(255,255,255,0.02); border-radius:var(--radius-lg); text-align:center; border:1px dashed var(--border-color); color:var(--text-muted); margin-bottom:1.5rem;">
+                <i data-lucide="camera" style="width:36px; height:36px; margin-bottom:0.5rem;"></i>
+                <p>Нет фотографий</p>
+            </div>
+        `;
+    }
+
+    content.innerHTML = `
+        <div class="form-container-card" style="max-width:100%; margin-top:0;">
+            <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem; border-bottom:1px solid var(--border-color); padding-bottom:1rem;">
+                <img src="${item.ownerAvatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}" style="width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid var(--accent-violet);">
+                <div>
+                    <h3 style="margin:0; font-weight:700;">${item.ownerName}</h3>
+                    <span style="font-size:0.75rem; color:var(--text-muted);">Опубликовано ${formattedDate}</span>
+                </div>
+            </div>
+            
+            <h2 style="font-size:1.8rem; font-weight:800; color:var(--accent-violet); margin-bottom:1rem;">
+                ${(item.budgetMin && item.budgetMax && item.budgetMin !== item.budgetMax) ? 
+                  `от ${formatNumberWithSpaces(item.budgetMin)} до ${formatNumberWithSpaces(item.budgetMax)} ₸` : 
+                  `${formatNumberWithSpaces(item.budgetMax || item.budget || 0)} ₸`} / мес
+            </h2>
+            
+            ${galleryHTML}
+
+            <div style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1.5rem;">
+                ${item.category === 'have_room'
+                    ? `<span class="card-tag accent" style="font-size:0.8rem; padding:0.4rem 0.8rem;">Ищу сожителя, ${item.ageMin}-${item.ageMax} лет</span><span class="card-tag" style="font-size:0.8rem; padding:0.4rem 0.8rem;">Пол: ${genderLabel}</span>`
+                    : `<span class="card-tag accent" style="font-size:0.8rem; padding:0.4rem 0.8rem;">${genderLabel}, ${item.age} лет</span>`
+                }
+                <span class="card-tag" style="font-size:0.8rem; padding:0.4rem 0.8rem;">${tagOccupation}</span>
+                <span class="card-tag" style="font-size:0.8rem; padding:0.4rem 0.8rem;">${item.roomCount === 'any' ? 'Любая комн.' : item.roomCount + ' комн.'}</span>
+                ${item.hasDeposit ? `<span class="card-tag accent" style="font-size:0.8rem; padding:0.4rem 0.8rem;">${item.category === 'need_room' ? 'Готов к депозиту' : 'Депозит'}</span>` : ''}
+                ${item.category === 'have_room' && item.totalResidents ? `<span class="card-tag" style="font-size:0.8rem; padding:0.4rem 0.8rem;">Жильцов: ${item.totalResidents}</span>` : ''}
+                ${item.category === 'have_room' && item.roommateCount ? `<span class="card-tag" style="font-size:0.8rem; padding:0.4rem 0.8rem;">Ищут: ${item.roommateCount}</span>` : ''}
+                ${item.category === 'need_room' && item.stayTerm ? `<span class="card-tag" style="font-size:0.8rem; padding:0.4rem 0.8rem;">Срок: ${getStayTermLabel(item.stayTerm)}</span>` : ''}
+                ${item.hasContract ? '<span class="card-tag" style="font-size:0.8rem; padding:0.4rem 0.8rem;">Договор</span>' : ''}
+                ${item.districts && item.districts.length > 0 ? `<span class="card-tag accent" style="font-size:0.8rem; padding:0.4rem 0.8rem;"><i data-lucide="map-pin" style="width:12px; height:12px; margin-right:4px;"></i>${item.districts.join(', ')}</span>` : ''}
+            </div>
+
+            <div style="margin-bottom:1.5rem; line-height:1.6; font-size:0.95rem; color:var(--text-secondary); white-space:pre-wrap;">
+                <h4 style="font-weight:700; color:var(--text-primary); margin-bottom:0.5rem;">Описание</h4>
+                ${item.description || 'Описание отсутствует.'}
+            </div>
+
+            ${item.address ? `<div style="margin-bottom:1.5rem; font-size:0.9rem; color:var(--text-secondary);"><h4 style="font-weight:700; color:var(--text-primary); margin-bottom:0.25rem;">Адрес</h4>${item.address}</div>` : ''}
+
+            <div style="display:flex; gap:1rem; border-top:1px solid var(--border-color); padding-top:1.5rem; margin-top:1.5rem;">
+                <a href="${waLink}" target="_blank" class="btn btn-primary" style="background:#25d366; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.25); min-height:44px; display:inline-flex; align-items:center; gap:0.5rem; flex:1;">
+                    <i data-lucide="message-square"></i>
+                    <span>Связаться по WhatsApp</span>
+                </a>
+                ${mapButton}
+            </div>
+        </div>
+    `;
+    lucide.createIcons();
+};

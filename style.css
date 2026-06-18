@@ -2,6 +2,7 @@
 
 /* Default Light Theme Variables */
 :root {
+    --bg-nav-mobile: rgba(255, 255, 255, 0.9);
     --bg-primary: #f8fafc;
     --bg-secondary: #ffffff;
     --bg-card: rgba(255, 255, 255, 0.7);
@@ -35,11 +36,12 @@
 
 /* Dark Theme Variables Override (Strict Graphite #252736 / Black elements) */
 .dark-theme {
-    --bg-primary: #252736; /* Базовый фон - темно-серый/графитовый */
-    --bg-secondary: #1a1b26; /* Более темный для контраста (боковые панели, меню) */
-    --bg-card: rgba(26, 27, 38, 0.65);
-    --bg-card-hover: rgba(36, 37, 52, 0.85);
-    --bg-input: #12131a; /* Темный монохромный для инпутов */
+    --bg-primary: #121214; /* Premium charcoal base */
+    --bg-secondary: #1a1a1e; /* Slate/graphite secondary */
+    --bg-card: rgba(26, 26, 30, 0.65);
+    --bg-card-hover: rgba(36, 36, 42, 0.85);
+    --bg-input: #0e0e10;
+    --bg-nav-mobile: rgba(26, 26, 30, 0.95);
     
     --accent-violet: #FF2C65;
     --accent-violet-glow: rgba(255, 44, 101, 0.25);
@@ -50,8 +52,8 @@
     --text-secondary: #a5a7b5;
     --text-muted: #6b6e82;
     
-    --border-color: rgba(255, 255, 255, 0.08);
-    --border-hover: rgba(255, 255, 255, 0.18);
+    --border-color: rgba(255, 255, 255, 0.05);
+    --border-hover: rgba(255, 255, 255, 0.15);
     
     --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.4);
     --shadow-md: 0 12px 32px rgba(0, 0, 0, 0.6);
@@ -677,7 +679,7 @@ header {
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 100;
+    z-index: 2000;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.25s ease;
@@ -1057,7 +1059,7 @@ h1, h2, h3, h4, h5, h6 {
     top: 0;
     bottom: 0;
     left: 0;
-    z-index: 100;
+    z-index: 1500;
     transition: transform var(--transition-smooth);
 }
 
@@ -1406,7 +1408,7 @@ h1, h2, h3, h4, h5, h6 {
     left: 0;
     width: 100%;
     height: 60px;
-    background: rgba(26, 27, 38, 0.9); /* Blurred dark bg */
+    background: var(--bg-nav-mobile);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-top: 1px solid var(--border-color);
@@ -1671,13 +1673,13 @@ html {
     scroll-behavior: smooth;
 }
 
-/* Sidebar Toggle Arrow Button */
+/* Sidebar Toggle Arrow Button - repopulated inside */
 .sidebar-toggle-btn {
     position: absolute;
-    right: -12px;
+    right: 16px;
     top: 25px;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 50%;
@@ -1688,12 +1690,32 @@ html {
     color: var(--text-secondary);
     z-index: 200;
     box-shadow: var(--shadow-sm);
-    transition: var(--transition-fast);
+    transition: all var(--transition-fast);
     outline: none;
 }
 .sidebar-toggle-btn:hover {
     color: var(--accent-violet);
     border-color: var(--accent-violet);
+    transform: scale(1.1);
+}
+.sidebar-nav.collapsed .sidebar-toggle-btn {
+    right: 20px; /* Centered in 70px sidebar (70 - 28) / 2 = 21px */
+    left: auto;
+}
+@media (max-width: 1023px) {
+    /* When sidebar is hidden off-screen on mobile, keep toggle button visible at left screen edge */
+    .sidebar-nav:not(.open) .sidebar-toggle-btn {
+        left: calc(100% + 14px);
+        right: auto;
+        transform: translateX(-50%);
+        box-shadow: var(--shadow-md);
+        border-color: var(--accent-violet);
+    }
+    .sidebar-nav.open .sidebar-toggle-btn {
+        right: 16px;
+        left: auto;
+        transform: none;
+    }
 }
 
 /* Collapsed Sidebar Styles */
@@ -1827,3 +1849,23 @@ html {
 
 
 
+
+/* Prevent body scroll when modals are open */
+body.modal-open {
+    overflow: hidden !important;
+}
+
+/* Enforce 4:5 aspect ratio on seeker image preview cards */
+#seekerPhotoPreviews .img-preview-box {
+    aspect-ratio: 4 / 5 !important;
+}
+
+/* Modal close button touch target optimization */
+.modal-close {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+}

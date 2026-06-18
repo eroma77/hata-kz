@@ -260,12 +260,12 @@ app.post('/api/listings', authenticateToken, createListingLimiter, async (req, r
             return res.status(400).json({ error: 'Выберите город' });
         }
 
-        // Validate residents count for room seekers (1 to 9)
+        // Validate residents count for room seekers (1 to 50)
         let resCount = 1;
         if (category === 'need_room') {
             resCount = parseInt(residentsCount);
-            if (isNaN(resCount) || resCount < 1 || resCount > 9) {
-                return res.status(400).json({ error: 'Количество заселяющихся должно быть от 1 до 9' });
+            if (isNaN(resCount) || resCount < 1 || resCount > 50) {
+                return res.status(400).json({ error: 'Количество заселяющихся должно быть от 1 до 50' });
             }
         }
 
@@ -322,8 +322,8 @@ app.post('/api/listings', authenticateToken, createListingLimiter, async (req, r
             gender,
             genderPref: gPref,
             occupation: escapeHTML(occupation),
-            roomCount: roomCount ? parseInt(roomCount) : null,
-            roommateCount: roommateCount ? parseInt(roommateCount) : null,
+            roomCount: (roomCount && !isNaN(parseInt(roomCount))) ? parseInt(roomCount) : null,
+            roommateCount: (roommateCount && !isNaN(parseInt(roommateCount))) ? parseInt(roommateCount) : null,
             totalResidents: category === 'have_room' && totalResidents ? parseInt(totalResidents) : 1,
             residentsCount: category === 'need_room' ? resCount : 1,
             description: escapeHTML(description),
@@ -406,8 +406,8 @@ app.put('/api/listings/:id', authenticateToken, async (req, res) => {
         let resCount = 1;
         if (listing.category === 'need_room') {
             resCount = parseInt(residentsCount);
-            if (isNaN(resCount) || resCount < 1 || resCount > 9) {
-                return res.status(400).json({ error: 'Количество заселяющихся должно быть от 1 до 9' });
+            if (isNaN(resCount) || resCount < 1 || resCount > 50) {
+                return res.status(400).json({ error: 'Количество заселяющихся должно быть от 1 до 50' });
             }
         }
 
@@ -451,8 +451,8 @@ app.put('/api/listings/:id', authenticateToken, async (req, res) => {
             gender,
             genderPref: gPref,
             occupation: escapeHTML(occupation),
-            roomCount: roomCount ? parseInt(roomCount) : null,
-            roommateCount: roommateCount ? parseInt(roommateCount) : null,
+            roomCount: (roomCount && !isNaN(parseInt(roomCount))) ? parseInt(roomCount) : null,
+            roommateCount: (roommateCount && !isNaN(parseInt(roommateCount))) ? parseInt(roommateCount) : null,
             totalResidents: listing.category === 'have_room' && totalResidents ? parseInt(totalResidents) : 1,
             residentsCount: listing.category === 'need_room' ? resCount : 1,
             description: escapeHTML(description),

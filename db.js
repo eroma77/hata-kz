@@ -199,6 +199,9 @@ class HataDatabase {
 
         // Run archiving daemon check
         this.runArchivingDaemon();
+
+        // Run cloud listings sync
+        this.syncListingsWithSupabase();
     }
 
     initSupabase() {
@@ -239,7 +242,42 @@ class HataDatabase {
                 sessionStorage.removeItem('hata_current_user');
             }
             window.dispatchEvent(new Event('hata_auth_changed'));
+            this.syncListingsWithSupabase();
         });
+    }
+
+    async syncListingsWithSupabase() {
+        if (!this.supabaseClient) return;
+        try {
+            const { data, error } = await this.supabaseClient
+                .from('listings')
+                .select('*');
+            
+            if (error) {
+                console.warn("Supabase fetch failed (probably table 'listings' doesn't exist yet):", error.message);
+                return;
+            }
+            
+            if (data && data.length > 0) {
+                const localListings = JSON.parse(localStorage.getItem('hata_listings') || '[]');
+                const merged = [...localListings];
+                
+                data.forEach(dbItem => {
+                    const idx = merged.findIndex(item => item.id === dbItem.id);
+                    if (idx > -1) {
+                        merged[idx] = dbItem;
+                    } else {
+                        merged.push(dbItem);
+                    }
+                });
+                
+                localStorage.setItem('hata_listings', JSON.stringify(merged));
+                window.dispatchEvent(new Event('hata_listings_changed'));
+                console.log("Synchronized listings successfully with Supabase table.");
+            }
+        } catch (e) {
+            console.warn("Gracefully caught error during Supabase listings sync:", e);
+        }
     }
 
     // Get currentUser
@@ -287,7 +325,6 @@ class HataDatabase {
 
     // Get all active listings
     getListings() {
-        this.runArchivingDaemon(); // clean up just in case
         return JSON.parse(localStorage.getItem('hata_listings') || '[]').filter(item => item.status === 'active');
     }
 
@@ -344,6 +381,13 @@ class HataDatabase {
             address: listing.address || ""
         });
 
+        // Background write to Supabase (hybrid sync)
+        if (this.supabaseClient) {
+            this.supabaseClient.from('listings').insert([newListing]).then(({ error }) => {
+                if (error) console.warn("Supabase insert error (table might not exist):", error.message);
+            }).catch(err => console.warn("Supabase insert promise rejected:", err));
+        }
+
         window.dispatchEvent(new Event('hata_listings_changed'));
         return newListing;
     }
@@ -371,6 +415,14 @@ class HataDatabase {
         };
 
         localStorage.setItem('hata_listings', JSON.stringify(all));
+
+        // Background write to Supabase (hybrid sync)
+        if (this.supabaseClient) {
+            this.supabaseClient.from('listings').update(updatedFields).eq('id', id).then(({ error }) => {
+                if (error) console.warn("Supabase update error (table might not exist):", error.message);
+            }).catch(err => console.warn("Supabase update promise rejected:", err));
+        }
+
         window.dispatchEvent(new Event('hata_listings_changed'));
     }
 
@@ -389,6 +441,14 @@ class HataDatabase {
 
         all.splice(idx, 1);
         localStorage.setItem('hata_listings', JSON.stringify(all));
+
+        // Background write to Supabase (hybrid sync)
+        if (this.supabaseClient) {
+            this.supabaseClient.from('listings').delete().eq('id', id).then(({ error }) => {
+                if (error) console.warn("Supabase delete error (table might not exist):", error.message);
+            }).catch(err => console.warn("Supabase delete promise rejected:", err));
+        }
+
         window.dispatchEvent(new Event('hata_listings_changed'));
     }
 
@@ -407,6 +467,14 @@ class HataDatabase {
         all[idx].archivedAt = new Date().toISOString();
 
         localStorage.setItem('hata_listings', JSON.stringify(all));
+
+        // Background write to Supabase (hybrid sync)
+        if (this.supabaseClient) {
+            this.supabaseClient.from('listings').update({ status: 'archived', archivedAt: all[idx].archivedAt }).eq('id', id).then(({ error }) => {
+                if (error) console.warn("Supabase archive error (table might not exist):", error.message);
+            }).catch(err => console.warn("Supabase archive promise rejected:", err));
+        }
+
         window.dispatchEvent(new Event('hata_listings_changed'));
     }
 
@@ -431,6 +499,14 @@ class HataDatabase {
         all[idx].archivedAt = null;
 
         localStorage.setItem('hata_listings', JSON.stringify(all));
+
+        // Background write to Supabase (hybrid sync)
+        if (this.supabaseClient) {
+            this.supabaseClient.from('listings').update({ status: 'active', createdAt: all[idx].createdAt, archivedAt: null }).eq('id', id).then(({ error }) => {
+                if (error) console.warn("Supabase reactivate error (table might not exist):", error.message);
+            }).catch(err => console.warn("Supabase reactivate promise rejected:", err));
+        }
+
         window.dispatchEvent(new Event('hata_listings_changed'));
     }
 
@@ -447,6 +523,14 @@ class HataDatabase {
         all[idx].createdAt = new Date().toISOString();
 
         localStorage.setItem('hata_listings', JSON.stringify(all));
+
+        // Background write to Supabase (hybrid sync)
+        if (this.supabaseClient) {
+            this.supabaseClient.from('listings').update({ boostExpiredAt: all[idx].boostExpiredAt, createdAt: all[idx].createdAt }).eq('id', id).then(({ error }) => {
+                if (error) console.warn("Supabase boost error (table might not exist):", error.message);
+            }).catch(err => console.warn("Supabase boost promise rejected:", err));
+        }
+
         window.dispatchEvent(new Event('hata_listings_changed'));
     }
 

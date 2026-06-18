@@ -1091,17 +1091,21 @@ window.removeFormImage = function(idx) {
 };
 
 function addFormImageMock() {
-    const mockImages = [
-        "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=600&h=400&fit=crop",
-        "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&h=400&fit=crop",
-        "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&h=400&fit=crop",
-        "https://images.unsplash.com/photo-1484101403633-562f891dc89a?w=600&h=400&fit=crop",
-        "https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=600&h=400&fit=crop",
-        "https://images.unsplash.com/photo-1583608205776-bfd35f0d9f83?w=600&h=400&fit=crop"
-    ];
+    const url = prompt("Введите URL-ссылку на фотографию квартиры (начинающуюся с http:// или https://):");
+    if (url === null) return;
     
-    const src = mockImages[formImagesList.length % mockImages.length];
-    formImagesList.push(src);
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) {
+        alert("URL-ссылка не может быть пустой.");
+        return;
+    }
+    
+    if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
+        alert("Некорректная ссылка. Она должна начинаться с http:// или https://");
+        return;
+    }
+    
+    formImagesList.push(trimmedUrl);
     initFormPhotoPreviews();
 }
 

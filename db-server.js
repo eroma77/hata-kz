@@ -49,6 +49,7 @@ function mapToDB(listing) {
     if (listing.roommateCount !== undefined) dbItem.roommate_count = listing.roommateCount;
     if (listing.totalResidents !== undefined) dbItem.total_residents = listing.totalResidents;
     if (listing.residentsCount !== undefined) dbItem.residents_count = listing.residentsCount;
+    if (listing.stayTerm !== undefined) dbItem.stay_term = listing.stayTerm;
     if (listing.description !== undefined) dbItem.description = listing.description;
     if (listing.photos !== undefined) dbItem.photos = listing.photos;
     if (listing.address !== undefined) dbItem.address = listing.address;
@@ -87,6 +88,7 @@ function mapFromDB(dbItem) {
         roommateCount: dbItem.roommate_count,
         totalResidents: dbItem.total_residents,
         residentsCount: dbItem.residents_count,
+        stayTerm: dbItem.stay_term,
         description: dbItem.description || '',
         photos: dbItem.photos || [],
         address: dbItem.address || '',
@@ -549,6 +551,7 @@ class ServerDatabase {
                 roommateCount: "any",
                 totalResidents: 1,
                 residentsCount: 1 + (i % 3), // mock counts 1 to 3
+                stayTerm: ["1", "2", "3", "6", "12", "always"][i % 6],
                 genderPref: i % 3 === 0 ? "male" : (i % 3 === 1 ? "female" : "any"),
                 description: `Ищу комнату или подселение в ${city}. Чистоплотный(ая).`,
                 photos: [],

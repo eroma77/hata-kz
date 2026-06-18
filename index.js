@@ -1,13 +1,20 @@
 // Hata.kz Application Controller
 
 // Global state
-let currentCategory = 'have_room'; // 'have_room' (Ищу квартиру) or 'need_room' (Ищу сожителя)
+let currentCategory = 'have_room'; // 'have_room' (Ищу соседа) or 'need_room' (Ищу квартиру)
 let selectedFilterDistricts = new Set();
 let selectedFormDistricts = new Set();
+let selectedAptDistricts = new Set();
+let selectedSeekerDistricts = new Set();
 let formImagesList = [];
+let aptImagesList = [];
+let seekerImagesList = [];
 let activePromoListingId = null;
 let activePromoDays = 3;
 let filterHasErrors = false;
+let lastFormCity = '';
+let lastAptCity = '';
+let lastSeekerCity = '';
 
 // Initialize app on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
@@ -21,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initAuth();
     initForm();
     initAdmin();
+    initSidebarCollapse();
     
     // Print local access guides
     printMobileAccessGuide();
@@ -37,6 +45,12 @@ document.addEventListener('DOMContentLoaded', () => {
         renderUserProfile();
         renderAdminModerationList();
     });
+
+    // Prevent race condition if listings loaded before DOMContentLoaded
+    if (db.listingsCache && db.listingsCache.length > 0) {
+        renderListings();
+        renderAdminModerationList();
+    }
     
     window.addEventListener('hata_auth_changed', () => {
         updateAuthHeader();
@@ -133,38 +147,45 @@ function setTheme(theme) {
 function populateCitiesDropdowns() {
     const filterCity = document.getElementById('filterCity');
     const formCity = document.getElementById('formCity');
+    const aptCity = document.getElementById('aptCity');
+    const seekerCity = document.getElementById('seekerCity');
     
-    if (filterCity) {
-        const currentVal = filterCity.value;
-        filterCity.innerHTML = '';
+    const populate = (selectEl, hasDefaultBlank = false) => {
+        if (!selectEl) return;
+        const currentVal = selectEl.value;
+        selectEl.innerHTML = '';
+        
+        if (hasDefaultBlank) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'Выберите город';
+            opt.disabled = true;
+            opt.selected = true;
+            opt.defaultSelected = true;
+            opt.setAttribute('selected', '');
+            selectEl.appendChild(opt);
+        }
+        
         Object.keys(HataConfig.cities).forEach(key => {
             const opt = document.createElement('option');
             opt.value = key;
             opt.textContent = HataConfig.cities[key].name;
-            filterCity.appendChild(opt);
+            selectEl.appendChild(opt);
         });
+        
         if (currentVal && HataConfig.cities[currentVal]) {
-            filterCity.value = currentVal;
+            selectEl.value = currentVal;
+        } else if (!hasDefaultBlank) {
+            selectEl.value = 'almaty';
         } else {
-            filterCity.value = 'almaty';
+            selectEl.value = '';
         }
-    }
+    };
     
-    if (formCity) {
-        const currentVal = formCity.value;
-        formCity.innerHTML = '';
-        Object.keys(HataConfig.cities).forEach(key => {
-            const opt = document.createElement('option');
-            opt.value = key;
-            opt.textContent = HataConfig.cities[key].name;
-            formCity.appendChild(opt);
-        });
-        if (currentVal && HataConfig.cities[currentVal]) {
-            formCity.value = currentVal;
-        } else {
-            formCity.value = 'almaty';
-        }
-    }
+    populate(filterCity, false);
+    populate(formCity, false);
+    populate(aptCity, true);
+    populate(seekerCity, true);
 }
 
 // --- AUTHENTICATION & SUPABASE INTEGRATION ---
@@ -859,18 +880,45 @@ function initForm() {
     if (formBudgetMin) attachNumberFormatting(formBudgetMin, validateFormBudgetBounds);
     if (formBudgetMax) attachNumberFormatting(formBudgetMax, validateFormBudgetBounds);
     
+    const aptBudgetMin = document.getElementById('aptBudgetMin');
+    const aptBudgetMax = document.getElementById('aptBudgetMax');
+    const seekerBudgetMin = document.getElementById('seekerBudgetMin');
+    const seekerBudgetMax = document.getElementById('seekerBudgetMax');
+    if (aptBudgetMin) attachNumberFormatting(aptBudgetMin, validateApartmentForm);
+    if (aptBudgetMax) attachNumberFormatting(aptBudgetMax, validateApartmentForm);
+    if (seekerBudgetMin) attachNumberFormatting(seekerBudgetMin, validateSeekerForm);
+    if (seekerBudgetMax) attachNumberFormatting(seekerBudgetMax, validateSeekerForm);
+
     // Populate formAge dropdowns (16 to 50 years)
     const formAge = document.getElementById('formAge');
     const formAgeMin = document.getElementById('formAgeMin');
     const formAgeMax = document.getElementById('formAgeMax');
-    [formAge, formAgeMin, formAgeMax].forEach(select => {
+    const aptAgeMin = document.getElementById('aptAgeMin');
+    const aptAgeMax = document.getElementById('aptAgeMax');
+    const seekerAge = document.getElementById('seekerAge');
+    
+    [formAge, formAgeMin, formAgeMax, aptAgeMin, aptAgeMax, seekerAge].forEach(select => {
         if (select) {
+            const isDefaultBlank = ['aptAgeMin', 'aptAgeMax', 'seekerAge'].includes(select.id);
             select.innerHTML = '';
+            if (isDefaultBlank) {
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = select.id === 'aptAgeMin' ? 'От' : (select.id === 'aptAgeMax' ? 'До' : 'Выберите возраст');
+                placeholder.disabled = true;
+                placeholder.selected = true;
+                placeholder.defaultSelected = true;
+                placeholder.setAttribute('selected', '');
+                select.appendChild(placeholder);
+            }
             for (let i = 16; i <= 50; i++) {
                 const opt = document.createElement('option');
                 opt.value = i;
                 opt.textContent = `${i} ${getRussianAgeSuffix(i)}`;
                 select.appendChild(opt);
+            }
+            if (isDefaultBlank) {
+                select.value = '';
             }
         }
     });
@@ -924,6 +972,59 @@ function initForm() {
 
     setupAutofillPopup(formWhatsapp, document.getElementById('whatsappSuggestion'), 'whatsapp');
     setupAutofillPopup(document.getElementById('formAddress'), document.getElementById('addressSuggestion'), 'address');
+
+    // Setup mask on new phone fields (WhatsApp - 10 digits formatted as XXX XXX XXXX)
+    const formatPhoneField = (e, validateFn) => {
+        const input = e.target;
+        const valBefore = input.value;
+        const cursor = input.selectionStart;
+        const raw = valBefore.replace(/\D/g, '').substring(0, 10);
+        let formatted = '';
+        if (raw.length > 0) {
+            formatted += raw.substring(0, 3);
+        }
+        if (raw.length > 3) {
+            formatted += ' ' + raw.substring(3, 6);
+        }
+        if (raw.length > 6) {
+            formatted += ' ' + raw.substring(6, 10);
+        }
+        input.value = formatted;
+        
+        // Count how many digits were before the cursor to position it correctly after formatting
+        let digitsCount = valBefore.substring(0, cursor).replace(/\D/g, '').length;
+        let newCursor = digitsCount;
+        if (digitsCount > 3) newCursor++;
+        if (digitsCount > 6) newCursor++;
+        
+        input.setSelectionRange(newCursor, newCursor);
+        validateFn();
+    };
+
+    const aptWhatsapp = document.getElementById('aptWhatsapp');
+    if (aptWhatsapp) {
+        aptWhatsapp.addEventListener('input', (e) => {
+            formatPhoneField(e, validateApartmentForm);
+        });
+    }
+    const seekerWhatsapp = document.getElementById('seekerWhatsapp');
+    if (seekerWhatsapp) {
+        seekerWhatsapp.addEventListener('input', (e) => {
+            formatPhoneField(e, validateSeekerForm);
+        });
+    }
+
+    // Initialize new file upload and previews
+    initAptPhotoUpload();
+    initAptPhotoPreviews();
+
+    // Register real-time validators
+    initFormValidationListeners();
+    
+    // Attach suggestion popup to new fields
+    if (aptWhatsapp) setupAutofillPopup(aptWhatsapp, document.getElementById('whatsappSuggestion'), 'whatsapp');
+    if (seekerWhatsapp) setupAutofillPopup(seekerWhatsapp, document.getElementById('whatsappSuggestion'), 'whatsapp');
+    setupAutofillPopup(document.getElementById('aptAddress'), document.getElementById('addressSuggestion'), 'address');
 }
 
 async function uploadPhoto(file) {
@@ -1122,6 +1223,7 @@ function openListingForm(id = null) {
     form.reset();
     selectedFormDistricts.clear();
     formImagesList = [];
+    lastFormCity = '';
     
     // Explicitly set default city key to fix districts loading bug
     document.getElementById('formCity').value = 'almaty';
@@ -1208,6 +1310,12 @@ function openListingForm(id = null) {
 window.updateFormDistricts = function() {
     let cityKey = document.getElementById('formCity').value;
     if (!cityKey) cityKey = 'almaty';
+    
+    if (lastFormCity && lastFormCity !== cityKey) {
+        selectedFormDistricts.clear();
+    }
+    lastFormCity = cityKey;
+    
     const container = document.getElementById('formDistrictsContainer');
     const wrapper = document.getElementById('formDistrictsWrapper');
     
@@ -1354,7 +1462,18 @@ window.handleListingSubmit = async function(event) {
     const gender = document.getElementById('formGender').value;
     const genderPref = document.getElementById('formGenderPref').value;
     const occupation = document.getElementById('formOccupation').value;
-    const whatsapp = document.getElementById('formWhatsapp').value;
+    const whatsappInput = document.getElementById('formWhatsapp').value;
+    let whatsapp = whatsappInput ? whatsappInput.replace(/\D/g, '') : '';
+    if (whatsapp.length === 11 && whatsapp.startsWith('8')) {
+        whatsapp = '7' + whatsapp.substring(1);
+    } else if (whatsapp.length === 10) {
+        whatsapp = '7' + whatsapp;
+    }
+
+    if (whatsapp.length !== 11 || !whatsapp.startsWith('77')) {
+        alert("Ошибка: Номер WhatsApp должен содержать 10 цифр (например, 7071234567) или 11 цифр и начинаться с 7 или 8.");
+        return;
+    }
     const roomCount = document.getElementById('formRoomCount').value === 'any' ? 'any' : parseInt(document.getElementById('formRoomCount').value);
     const roommateCount = document.getElementById('formRoommateCount').value === 'any' ? 'any' : parseInt(document.getElementById('formRoommateCount').value);
     const hasDeposit = document.getElementById('formDeposit').value === 'true';
@@ -1443,7 +1562,66 @@ window.handleListingSubmit = async function(event) {
 };
 
 window.editListing = function(id) {
-    openListingForm(id);
+    const user = db.getCurrentUser();
+    if (!user) {
+        openModal('loginModal');
+        return;
+    }
+    const all = db.getListings().concat(db.getUserListings(user.id));
+    const item = all.find(x => x.id === id);
+    if (!item) return;
+    
+    isEditingListing = true;
+    window.switchTab(item.category === 'have_room' ? 'createApartment' : 'createSeeker');
+    
+    if (item.category === 'have_room') {
+        document.getElementById('aptListingId').value = item.id;
+        document.getElementById('aptCity').value = item.city;
+        selectedAptDistricts = new Set(item.districts || []);
+        updateAptDistricts();
+        document.getElementById('aptAddress').value = item.address || '';
+        document.getElementById('aptGisLink').value = item.gisLink || '';
+        document.getElementById('aptBudgetMin').value = formatNumberWithSpaces(item.budgetMin || item.budget || 0);
+        document.getElementById('aptBudgetMax').value = formatNumberWithSpaces(item.budgetMax || item.budget || 0);
+        document.getElementById('aptTotalResidents').value = item.totalResidents || '1';
+        document.getElementById('aptRoommateCount').value = item.roommateCount || '1';
+        document.getElementById('aptRoomCount').value = item.roomCount || '1';
+        document.getElementById('aptAgeMin').value = item.ageMin || item.age || '18';
+        document.getElementById('aptAgeMax').value = item.ageMax || item.age || '25';
+        document.getElementById('aptContract').value = item.hasContract ? 'true' : 'false';
+        document.getElementById('aptDeposit').value = item.hasDeposit ? 'true' : 'false';
+        document.getElementById('aptOccupation').value = item.occupation || 'student';
+        document.getElementById('aptGender').value = item.gender || 'male';
+        document.getElementById('aptGenderPref').value = item.genderPref || 'any';
+        document.getElementById('aptWhatsapp').value = item.whatsapp || '';
+        document.getElementById('aptDescription').value = item.description || '';
+        aptImagesList = [...(item.photos || [])];
+        initAptPhotoPreviews();
+        document.getElementById('createApartmentTitle').textContent = 'Редактировать объявление: Ищу соседа';
+        document.getElementById('aptSubmitBtn').textContent = 'Сохранить изменения';
+        validateApartmentForm();
+    } else {
+        document.getElementById('seekerListingId').value = item.id;
+        document.getElementById('seekerCity').value = item.city;
+        selectedSeekerDistricts = new Set(item.districts || []);
+        updateSeekerDistricts();
+        document.getElementById('seekerBudgetMin').value = formatNumberWithSpaces(item.budgetMin || item.budget || 0);
+        document.getElementById('seekerBudgetMax').value = formatNumberWithSpaces(item.budgetMax || item.budget || 0);
+        document.getElementById('seekerAge').value = item.age || '20';
+        document.getElementById('seekerResidentsCount').value = item.residentsCount || '1';
+        document.getElementById('seekerStayTerm').value = item.stayTerm || 'any';
+        document.getElementById('seekerDeposit').value = item.hasDeposit ? 'true' : 'false';
+        document.getElementById('seekerOccupation').value = item.occupation || 'student';
+        document.getElementById('seekerGender').value = item.gender || 'male';
+        document.getElementById('seekerGenderPref').value = item.genderPref || 'any';
+        document.getElementById('seekerWhatsapp').value = item.whatsapp || '';
+        document.getElementById('seekerRoomCount').value = item.roomCount || 'any';
+        document.getElementById('seekerRoommateCount').value = item.roommateCount || 'any';
+        document.getElementById('seekerDescription').value = item.description || '';
+        document.getElementById('createSeekerTitle').textContent = 'Редактировать объявление: Ищу квартиру';
+        document.getElementById('seekerSubmitBtn').textContent = 'Сохранить изменения';
+        validateSeekerForm();
+    }
 };
 
 // --- PROMOTION BOOST MODAL ---
@@ -1558,7 +1736,7 @@ function renderAdminModerationList() {
     const container = document.getElementById('adminModerationList');
     if (!container) return;
     
-    const all = JSON.parse(localStorage.getItem('hata_listings') || '[]');
+    const all = db.listingsCache || [];
     
     if (all.length === 0) {
         container.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:1rem; color:var(--text-muted);">Объявлений пока нет.</td></tr>`;
@@ -1599,12 +1777,57 @@ window.switchTab = function(tabId) {
         }
     }
 
+    // Security check for creation pages
+    if (tabId === 'createApartment' || tabId === 'createSeeker') {
+        if (!user) {
+            openModal('loginModal');
+            return;
+        }
+        if (!isEditingListing) {
+            // Reset the form to creation state
+            if (tabId === 'createApartment') {
+                const aptForm = document.getElementById('createApartmentForm');
+                if (aptForm) aptForm.reset();
+                document.getElementById('aptListingId').value = '';
+                selectedAptDistricts.clear();
+                aptImagesList = [];
+                initAptPhotoPreviews();
+                updateAptDistricts();
+                document.getElementById('createApartmentTitle').textContent = 'Создать объявление: Ищу соседа';
+                document.getElementById('aptSubmitBtn').textContent = 'Опубликовать (0 ₸)';
+                
+                const suggestions = db.getAutoFillSuggestions(user.id);
+                if (suggestions.gender) document.getElementById('aptGender').value = suggestions.gender;
+                if (suggestions.occupation) document.getElementById('aptOccupation').value = suggestions.occupation;
+                if (suggestions.whatsapp) document.getElementById('aptWhatsapp').value = suggestions.whatsapp;
+                
+                validateApartmentForm();
+            } else {
+                const seekerForm = document.getElementById('createSeekerForm');
+                if (seekerForm) seekerForm.reset();
+                document.getElementById('seekerListingId').value = '';
+                selectedSeekerDistricts.clear();
+                updateSeekerDistricts();
+                document.getElementById('createSeekerTitle').textContent = 'Создать объявление: Ищу квартиру';
+                document.getElementById('seekerSubmitBtn').textContent = 'Опубликовать (0 ₸)';
+                
+                const suggestions = db.getAutoFillSuggestions(user.id);
+                if (suggestions.gender) document.getElementById('seekerGender').value = suggestions.gender;
+                if (suggestions.occupation) document.getElementById('seekerOccupation').value = suggestions.occupation;
+                if (suggestions.whatsapp) document.getElementById('seekerWhatsapp').value = suggestions.whatsapp;
+                
+                validateSeekerForm();
+            }
+        }
+        isEditingListing = false; // Reset the flag
+    }
+
     // "Создать пост" trigger behavior
     if (tabId === 'create') {
         if (!user) {
             openModal('loginModal');
         } else {
-            openModal('listingModal');
+            openModal('createChoiceModal');
         }
         return;
     }
@@ -1895,3 +2118,490 @@ function printMobileAccessGuide() {
     console.log("   В другом окне запустите туннель: npx localtunnel --port 8080");
     console.log("   Или через ngrok: ngrok http 8080");
 }
+
+// --- NEW FORMS CONTROLLERS & COLLAPSE LOGIC ---
+
+let isEditingListing = false;
+
+function initSidebarCollapse() {
+    const toggleBtn = document.getElementById('sidebarToggleBtn');
+    const sidebar = document.querySelector('.sidebar-nav');
+    if (!toggleBtn || !sidebar) return;
+
+    // Restore state from localStorage
+    const isCollapsed = localStorage.getItem('sidebar_collapsed') === 'true';
+    if (isCollapsed) {
+        sidebar.classList.add('collapsed');
+        const icon = toggleBtn.querySelector('i');
+        if (icon) icon.setAttribute('data-lucide', 'chevron-right');
+    }
+
+    toggleBtn.addEventListener('click', () => {
+        const collapsed = sidebar.classList.toggle('collapsed');
+        localStorage.setItem('sidebar_collapsed', collapsed);
+        
+        // Update lucide icon
+        const icon = toggleBtn.querySelector('i');
+        if (icon) {
+            if (collapsed) {
+                icon.setAttribute('data-lucide', 'chevron-right');
+            } else {
+                icon.setAttribute('data-lucide', 'chevron-left');
+            }
+        }
+        lucide.createIcons();
+    });
+}
+
+window.updateAptDistricts = function() {
+    let cityKey = document.getElementById('aptCity').value;
+    const container = document.getElementById('aptDistrictsContainer');
+    const wrapper = document.getElementById('aptDistrictsWrapper');
+    
+    if (!cityKey) {
+        if (wrapper) wrapper.style.display = 'none';
+        if (container) container.innerHTML = '';
+        selectedAptDistricts.clear();
+        validateApartmentForm();
+        return;
+    }
+    
+    if (lastAptCity && lastAptCity !== cityKey) {
+        selectedAptDistricts.clear();
+    }
+    lastAptCity = cityKey;
+    
+    if (!container || !wrapper) return;
+    container.innerHTML = '';
+    
+    const cityInfo = HataConfig.cities[cityKey];
+    if (!cityInfo || !cityInfo.hasDistricts) {
+        wrapper.style.display = 'none';
+        validateApartmentForm();
+        return;
+    }
+    
+    wrapper.style.display = 'block';
+    
+    cityInfo.districts.forEach(dist => {
+        const checkboxWrapper = document.createElement('label');
+        checkboxWrapper.style.display = 'flex';
+        checkboxWrapper.style.alignItems = 'center';
+        checkboxWrapper.style.gap = '0.5rem';
+        checkboxWrapper.style.cursor = 'pointer';
+        checkboxWrapper.style.fontSize = '0.85rem';
+        checkboxWrapper.style.color = 'var(--text-secondary)';
+        
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = dist;
+        input.checked = selectedAptDistricts.has(dist);
+        input.addEventListener('change', () => {
+            if (input.checked) {
+                selectedAptDistricts.add(dist);
+            } else {
+                selectedAptDistricts.delete(dist);
+            }
+            validateApartmentForm();
+        });
+        
+        checkboxWrapper.appendChild(input);
+        checkboxWrapper.appendChild(document.createTextNode(dist));
+        container.appendChild(checkboxWrapper);
+    });
+    
+    validateApartmentForm();
+};
+
+window.updateSeekerDistricts = function() {
+    let cityKey = document.getElementById('seekerCity').value;
+    const container = document.getElementById('seekerDistrictsContainer');
+    const wrapper = document.getElementById('seekerDistrictsWrapper');
+    
+    if (!cityKey) {
+        if (wrapper) wrapper.style.display = 'none';
+        if (container) container.innerHTML = '';
+        selectedSeekerDistricts.clear();
+        validateSeekerForm();
+        return;
+    }
+    
+    if (lastSeekerCity && lastSeekerCity !== cityKey) {
+        selectedSeekerDistricts.clear();
+    }
+    lastSeekerCity = cityKey;
+    
+    if (!container || !wrapper) return;
+    container.innerHTML = '';
+    
+    const cityInfo = HataConfig.cities[cityKey];
+    if (!cityInfo || !cityInfo.hasDistricts) {
+        wrapper.style.display = 'none';
+        validateSeekerForm();
+        return;
+    }
+    
+    wrapper.style.display = 'block';
+    
+    cityInfo.districts.forEach(dist => {
+        const checkboxWrapper = document.createElement('label');
+        checkboxWrapper.style.display = 'flex';
+        checkboxWrapper.style.alignItems = 'center';
+        checkboxWrapper.style.gap = '0.5rem';
+        checkboxWrapper.style.cursor = 'pointer';
+        checkboxWrapper.style.fontSize = '0.85rem';
+        checkboxWrapper.style.color = 'var(--text-secondary)';
+        
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = dist;
+        input.checked = selectedSeekerDistricts.has(dist);
+        input.addEventListener('change', () => {
+            if (input.checked) {
+                selectedSeekerDistricts.add(dist);
+            } else {
+                selectedSeekerDistricts.delete(dist);
+            }
+            validateSeekerForm();
+        });
+        
+        checkboxWrapper.appendChild(input);
+        checkboxWrapper.appendChild(document.createTextNode(dist));
+        container.appendChild(checkboxWrapper);
+    });
+    
+    validateSeekerForm();
+};
+
+window.validateApartmentForm = function() {
+    const submitBtn = document.getElementById('aptSubmitBtn');
+    if (!submitBtn) return;
+    
+    const city = document.getElementById('aptCity').value;
+    const address = document.getElementById('aptAddress').value.trim();
+    const gisLink = document.getElementById('aptGisLink').value.trim();
+    const budgetMin = parseFormattedNumber(document.getElementById('aptBudgetMin').value);
+    const budgetMax = parseFormattedNumber(document.getElementById('aptBudgetMax').value);
+    const totalResidents = document.getElementById('aptTotalResidents').value;
+    const roommateCount = document.getElementById('aptRoommateCount').value;
+    const roomCount = document.getElementById('aptRoomCount').value;
+    const ageMin = document.getElementById('aptAgeMin').value;
+    const ageMax = document.getElementById('aptAgeMax').value;
+    const contract = document.getElementById('aptContract').value;
+    const deposit = document.getElementById('aptDeposit').value;
+    const occupation = document.getElementById('aptOccupation').value;
+    const gender = document.getElementById('aptGender').value;
+    const genderPref = document.getElementById('aptGenderPref').value;
+    const whatsapp = document.getElementById('aptWhatsapp').value.replace(/\D/g, '');
+    const description = document.getElementById('aptDescription').value.trim();
+    
+    const cityInfo = HataConfig.cities[city];
+    const hasDistricts = cityInfo ? cityInfo.hasDistricts : false;
+    
+    let isValid = true;
+    
+    if (!city) isValid = false;
+    if (hasDistricts && selectedAptDistricts.size === 0) isValid = false;
+    if (!address) isValid = false;
+    if (!gisLink || (!gisLink.startsWith('https://2gis.kz/') && !gisLink.startsWith('https://go.2gis.com/'))) isValid = false;
+    if (isNaN(budgetMin) || budgetMin < 10000 || budgetMin > 1000000) isValid = false;
+    if (isNaN(budgetMax) || budgetMax < 10000 || budgetMax > 1000000) isValid = false;
+    if (budgetMin > budgetMax) isValid = false;
+    if (!totalResidents) isValid = false;
+    if (!roommateCount) isValid = false;
+    if (!roomCount) isValid = false;
+    if (!ageMin || !ageMax || parseInt(ageMin) > parseInt(ageMax)) isValid = false;
+    if (!contract) isValid = false;
+    if (!deposit) isValid = false;
+    if (!occupation) isValid = false;
+    if (!gender) isValid = false;
+    if (!genderPref) isValid = false;
+    if (whatsapp.length !== 10) isValid = false;
+    if (!description) isValid = false;
+    
+    submitBtn.disabled = !isValid;
+};
+
+window.validateSeekerForm = function() {
+    const submitBtn = document.getElementById('seekerSubmitBtn');
+    if (!submitBtn) return;
+    
+    const city = document.getElementById('seekerCity').value;
+    const budgetMin = parseFormattedNumber(document.getElementById('seekerBudgetMin').value);
+    const budgetMax = parseFormattedNumber(document.getElementById('seekerBudgetMax').value);
+    const age = document.getElementById('seekerAge').value;
+    const residentsCount = document.getElementById('seekerResidentsCount').value;
+    const stayTerm = document.getElementById('seekerStayTerm').value;
+    const deposit = document.getElementById('seekerDeposit').value;
+    const occupation = document.getElementById('seekerOccupation').value;
+    const gender = document.getElementById('seekerGender').value;
+    const genderPref = document.getElementById('seekerGenderPref').value;
+    const whatsapp = document.getElementById('seekerWhatsapp').value.replace(/\D/g, '');
+    const roomCount = document.getElementById('seekerRoomCount').value;
+    const roommateCount = document.getElementById('seekerRoommateCount').value;
+    const description = document.getElementById('seekerDescription').value.trim();
+    
+    const cityInfo = HataConfig.cities[city];
+    const hasDistricts = cityInfo ? cityInfo.hasDistricts : false;
+    
+    let isValid = true;
+    
+    if (!city) isValid = false;
+    if (hasDistricts && selectedSeekerDistricts.size === 0) isValid = false;
+    if (isNaN(budgetMin) || budgetMin < 10000 || budgetMin > 1000000) isValid = false;
+    if (isNaN(budgetMax) || budgetMax < 10000 || budgetMax > 1000000) isValid = false;
+    if (budgetMin > budgetMax) isValid = false;
+    if (!age) isValid = false;
+    if (!residentsCount) isValid = false;
+    if (!stayTerm) isValid = false;
+    if (!deposit) isValid = false;
+    if (!occupation) isValid = false;
+    if (!gender) isValid = false;
+    if (!genderPref) isValid = false;
+    if (whatsapp.length !== 10) isValid = false;
+    if (!roomCount) isValid = false;
+    if (!roommateCount) isValid = false;
+    if (!description) isValid = false;
+    
+    submitBtn.disabled = !isValid;
+};
+
+function initFormValidationListeners() {
+    const aptForm = document.getElementById('createApartmentForm');
+    if (aptForm) {
+        aptForm.querySelectorAll('input, select, textarea').forEach(el => {
+            el.addEventListener('input', validateApartmentForm);
+            el.addEventListener('change', validateApartmentForm);
+        });
+    }
+    const seekerForm = document.getElementById('createSeekerForm');
+    if (seekerForm) {
+        seekerForm.querySelectorAll('input, select, textarea').forEach(el => {
+            el.addEventListener('input', validateSeekerForm);
+            el.addEventListener('change', validateSeekerForm);
+        });
+    }
+}
+
+window.initAptPhotoPreviews = function() {
+    const container = document.getElementById('aptPhotoPreviews');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    aptImagesList.forEach((img, idx) => {
+        const box = document.createElement('div');
+        box.className = 'img-preview-box';
+        box.style.backgroundImage = `url(${img})`;
+        box.style.backgroundSize = 'cover';
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'img-remove-btn';
+        removeBtn.innerHTML = '&times;';
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            aptImagesList.splice(idx, 1);
+            initAptPhotoPreviews();
+            validateApartmentForm();
+        });
+        
+        box.appendChild(removeBtn);
+        container.appendChild(box);
+    });
+    
+    if (aptImagesList.length < 3) {
+        const addBox = document.createElement('div');
+        addBox.className = 'img-preview-box';
+        addBox.textContent = '+';
+        addBox.addEventListener('click', () => {
+            const fileInput = document.getElementById('aptPhotoUploadInput');
+            if (fileInput) fileInput.click();
+        });
+        container.appendChild(addBox);
+    }
+};
+
+function initAptPhotoUpload() {
+    const fileInput = document.getElementById('aptPhotoUploadInput');
+    if (!fileInput) return;
+    fileInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        const remaining = 3 - aptImagesList.length;
+        const toProcess = files.slice(0, remaining);
+        
+        let processed = 0;
+        toProcess.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                aptImagesList.push(event.target.result);
+                processed++;
+                if (processed === toProcess.length) {
+                    initAptPhotoPreviews();
+                    validateApartmentForm();
+                    fileInput.value = '';
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+}
+
+window.handleApartmentSubmit = async function(event) {
+    event.preventDefault();
+    
+    const id = document.getElementById('aptListingId').value;
+    const city = document.getElementById('aptCity').value;
+    const address = document.getElementById('aptAddress').value.trim();
+    const gisLink = document.getElementById('aptGisLink').value.trim();
+    const budgetMin = parseFormattedNumber(document.getElementById('aptBudgetMin').value);
+    const budgetMax = parseFormattedNumber(document.getElementById('aptBudgetMax').value);
+    const totalResidents = parseInt(document.getElementById('aptTotalResidents').value);
+    const roommateCount = parseInt(document.getElementById('aptRoommateCount').value);
+    const roomCount = parseInt(document.getElementById('aptRoomCount').value);
+    const ageMin = parseInt(document.getElementById('aptAgeMin').value);
+    const ageMax = parseInt(document.getElementById('aptAgeMax').value);
+    const hasContract = document.getElementById('aptContract').value === 'true';
+    const hasDeposit = document.getElementById('aptDeposit').value === 'true';
+    const occupation = document.getElementById('aptOccupation').value;
+    const gender = document.getElementById('aptGender').value;
+    const genderPref = document.getElementById('aptGenderPref').value;
+    const whatsappInput = document.getElementById('aptWhatsapp').value;
+    let whatsapp = whatsappInput ? whatsappInput.replace(/\D/g, '') : '';
+    if (whatsapp.length === 10) {
+        whatsapp = '7' + whatsapp;
+    } else if (whatsapp.length === 11 && whatsapp.startsWith('8')) {
+        whatsapp = '7' + whatsapp.substring(1);
+    }
+    const description = document.getElementById('aptDescription').value.trim();
+    
+    const cityInfo = HataConfig.cities[city];
+    let districts = [];
+    if (cityInfo && cityInfo.hasDistricts) {
+        districts = Array.from(selectedAptDistricts);
+    }
+    
+    const payload = {
+        category: 'have_room',
+        budgetMin,
+        budgetMax,
+        budget: budgetMax,
+        age: ageMin,
+        ageMin,
+        ageMax,
+        city,
+        districts,
+        whatsapp,
+        gender,
+        genderPref,
+        occupation,
+        roomCount,
+        roommateCount,
+        hasDeposit,
+        description,
+        address,
+        gisLink,
+        photos: aptImagesList,
+        totalResidents,
+        hasContract,
+        stayTerm: 'any',
+        residentsCount: 1
+    };
+    
+    const submitBtn = document.getElementById('aptSubmitBtn');
+    const originalText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Публикация...';
+    
+    try {
+        if (id) {
+            await db.updateListing(id, payload);
+        } else {
+            await db.addListing(payload);
+        }
+        window.switchTab('feed');
+    } catch (e) {
+        alert(e.message);
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+    }
+};
+
+window.handleSeekerSubmit = async function(event) {
+    event.preventDefault();
+    
+    const id = document.getElementById('seekerListingId').value;
+    const city = document.getElementById('seekerCity').value;
+    const budgetMin = parseFormattedNumber(document.getElementById('seekerBudgetMin').value);
+    const budgetMax = parseFormattedNumber(document.getElementById('seekerBudgetMax').value);
+    const age = parseInt(document.getElementById('seekerAge').value);
+    const residentsCount = parseInt(document.getElementById('seekerResidentsCount').value);
+    const stayTerm = document.getElementById('seekerStayTerm').value;
+    const hasDeposit = document.getElementById('seekerDeposit').value === 'true';
+    const occupation = document.getElementById('seekerOccupation').value;
+    const gender = document.getElementById('seekerGender').value;
+    const genderPref = document.getElementById('seekerGenderPref').value;
+    const whatsappInput = document.getElementById('seekerWhatsapp').value;
+    let whatsapp = whatsappInput ? whatsappInput.replace(/\D/g, '') : '';
+    if (whatsapp.length === 10) {
+        whatsapp = '7' + whatsapp;
+    } else if (whatsapp.length === 11 && whatsapp.startsWith('8')) {
+        whatsapp = '7' + whatsapp.substring(1);
+    }
+    const roomCount = document.getElementById('seekerRoomCount').value === 'any' ? 'any' : parseInt(document.getElementById('seekerRoomCount').value);
+    const roommateCount = document.getElementById('seekerRoommateCount').value === 'any' ? 'any' : parseInt(document.getElementById('seekerRoommateCount').value);
+    const description = document.getElementById('seekerDescription').value.trim();
+    
+    const cityInfo = HataConfig.cities[city];
+    let districts = [];
+    if (cityInfo && cityInfo.hasDistricts) {
+        districts = Array.from(selectedSeekerDistricts);
+    }
+    
+    const payload = {
+        category: 'need_room',
+        budgetMin,
+        budgetMax,
+        budget: budgetMax,
+        age,
+        ageMin: age,
+        ageMax: age,
+        city,
+        districts,
+        whatsapp,
+        gender,
+        genderPref,
+        occupation,
+        roomCount,
+        roommateCount,
+        hasDeposit,
+        description,
+        address: '',
+        gisLink: '',
+        photos: [],
+        totalResidents: 1,
+        hasContract: false,
+        stayTerm,
+        residentsCount
+    };
+    
+    const submitBtn = document.getElementById('seekerSubmitBtn');
+    const originalText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Публикация...';
+    
+    try {
+        if (id) {
+            await db.updateListing(id, payload);
+        } else {
+            await db.addListing(payload);
+        }
+        window.switchTab('feed');
+    } catch (e) {
+        alert(e.message);
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+    }
+};
+

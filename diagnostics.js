@@ -58,8 +58,8 @@ async function runDiagnostics() {
         errors.push({ type: 'Interaction Error', message: 'Failed to open login modal: ' + e.message });
     }
 
-    // 4. Inject mock user and test listing form
-    console.log('4. Setting mock user and opening listing form...');
+    // 4. Inject mock user and test listing form choice
+    console.log('4. Setting mock user and opening listing choice...');
     try {
         await page.evaluate(() => {
             const mockUser = {
@@ -72,40 +72,66 @@ async function runDiagnostics() {
             localStorage.setItem('hata_current_user', JSON.stringify(mockUser));
             sessionStorage.setItem('hata_current_user', JSON.stringify(mockUser));
             window.db.getCurrentUser = () => mockUser;
+            window.updateAuthHeader(); // update UI state
         });
         
-        const createBtn = await page.$('#mobileCreateBtn') || await page.$('#createListingBtn');
+        const createBtn = await page.$('#mobileCreateBtn');
         if (createBtn) {
             await createBtn.click();
             await new Promise(r => setTimeout(r, 500));
+        } else {
+            errors.push({ type: 'DOM Error', message: 'Could not find #mobileCreateBtn' });
         }
     } catch (e) {
         errors.push({ type: 'Interaction Error', message: 'Failed to log in and open form: ' + e.message });
     }
 
-    // 5. Toggle categories and trigger change events
-    console.log('5. Toggling listing categories...');
+    // 5. Navigate to separate forms and test city dropdown interactions
+    console.log('5. Navigating to separate form pages...');
     try {
-        const selectExists = await page.$('#formCategorySelect');
-        if (selectExists) {
-            await page.select('#formCategorySelect', 'have_room');
+        const choiceModalVisible = await page.evaluate(() => {
+            const el = document.getElementById('createChoiceModal');
+            return el && (el.classList.contains('active') || el.style.display !== 'none');
+        });
+        
+        if (choiceModalVisible) {
+            // Click to choose Apartment form
             await page.evaluate(() => {
-                const select = document.getElementById('formCategorySelect');
+                const buttons = document.querySelectorAll('#createChoiceModal button');
+                if (buttons.length > 0) buttons[1].click(); // Click first actual choice button (it is index 1 because index 0 is modal-close button)
+            });
+            await new Promise(r => setTimeout(r, 500));
+            
+            // Verify apartment page is shown
+            const pageVisible = await page.evaluate(() => {
+                const el = document.getElementById('createApartmentPage');
+                return el && el.classList.contains('active') && el.style.display !== 'none';
+            });
+            
+            if (!pageVisible) {
+                errors.push({ type: 'Routing Error', message: 'Failed to route to #createApartmentPage' });
+            }
+            
+            // Interacts with #aptCity dropdown
+            await page.select('#aptCity', 'almaty');
+            await page.evaluate(() => {
+                const select = document.getElementById('aptCity');
                 select.dispatchEvent(new Event('change'));
             });
             await new Promise(r => setTimeout(r, 500));
-
-            await page.select('#formCategorySelect', 'need_room');
-            await page.evaluate(() => {
-                const select = document.getElementById('formCategorySelect');
-                select.dispatchEvent(new Event('change'));
+            
+            // Verify districts list populated
+            const distsCount = await page.evaluate(() => {
+                return document.querySelectorAll('#aptDistrictsContainer input[type="checkbox"]').length;
             });
-            await new Promise(r => setTimeout(r, 500));
+            if (distsCount === 0) {
+                errors.push({ type: 'Validation Error', message: 'Districts checkboxes not populated for apt form' });
+            }
         } else {
-            errors.push({ type: 'DOM Error', message: 'Could not find #formCategorySelect inside listing modal' });
+            errors.push({ type: 'DOM Error', message: 'createChoiceModal did not open' });
         }
     } catch (e) {
-        errors.push({ type: 'Interaction Error', message: 'Failed to toggle category: ' + e.message });
+        errors.push({ type: 'Interaction Error', message: 'Failed to navigate/test: ' + e.message });
     }
 
     console.log('\n--- Diagnostics Results ---');

@@ -22,9 +22,13 @@
     <div class="app-layout">
         <!-- Sidebar Navigation (Desktop-only, hidden on mobile) -->
         <aside class="sidebar-nav">
-            <div class="sidebar-logo" id="logoLink">
-                <i data-lucide="compass" class="logo-icon"></i>
-                HATA<span>.KZ</span>
+            <!-- Sidebar Collapse Toggle Button -->
+            <button id="sidebarToggleBtn" class="sidebar-toggle-btn" title="Свернуть/Развернуть меню">
+                <i data-lucide="chevron-left" style="width: 16px; height: 16px;"></i>
+            </button>
+
+            <div class="sidebar-logo" id="logoLink" style="height: 40px; margin-bottom: 2.5rem;">
+                <!-- Empty for new logo integration -->
             </div>
             
             <nav class="sidebar-menu">
@@ -36,9 +40,13 @@
                     <i data-lucide="heart"></i>
                     <span>Избранное</span>
                 </a>
-                <a href="#" class="menu-item" id="sidebarCreateBtn">
+                <a href="#" class="menu-item" data-tab="createSeeker">
+                    <i data-lucide="search"></i>
+                    <span>Ищу квартиру</span>
+                </a>
+                <a href="#" class="menu-item" data-tab="createApartment">
                     <i data-lucide="plus-circle"></i>
-                    <span>Создать пост</span>
+                    <span>Ищу соседа</span>
                 </a>
                 <a href="#" class="menu-item" data-tab="profile">
                     <i data-lucide="user"></i>
@@ -68,9 +76,8 @@
             <header class="top-bar">
                 <div class="top-bar-left">
                     <!-- Mobile Logo (visible on mobile only) -->
-                    <div class="mobile-logo">
-                        <i data-lucide="compass" class="logo-icon"></i>
-                        HATA<span>.KZ</span>
+                    <div class="mobile-logo" style="height: 30px; width: 40px; margin-right: 1rem;">
+                        <!-- Empty for new logo integration -->
                     </div>
 
                     <!-- Global Search Box -->
@@ -89,8 +96,8 @@
                 <div class="top-bar-right">
                     <!-- Category Switcher Pills -->
                     <div class="category-toggle-pills">
-                        <button class="pill-option active" id="tabNeedRoom" data-category="have_room">Сдаю комнату / подселение</button>
-                        <button class="pill-option" id="tabHaveRoom" data-category="need_room">Ищу сожителя / комнату</button>
+                        <button class="pill-option active" id="tabNeedRoom" data-category="have_room">Ищу соседа</button>
+                        <button class="pill-option" id="tabHaveRoom" data-category="need_room">Ищу квартиру</button>
                     </div>
 
                     <!-- Mobile Theme Icon Button -->
@@ -336,6 +343,368 @@
                         </div>
                     </div>
                 </section>
+
+                <!-- VIEW 5: CREATE APARTMENT PAGE -->
+                <section class="page-section" id="createApartmentPage" style="display: none;">
+                    <div class="listings-header">
+                        <h2 id="createApartmentTitle">Создать объявление: Ищу соседа</h2>
+                    </div>
+                    <div class="form-container-card">
+                        <form id="createApartmentForm" onsubmit="handleApartmentSubmit(event)">
+                            <input type="hidden" id="aptListingId" value="">
+                            <div class="form-grid">
+                                <!-- City -->
+                                <div class="filter-group">
+                                    <label for="aptCity">Город <span class="required">*</span></label>
+                                    <select id="aptCity" class="form-control" onchange="updateAptDistricts()">
+                                        <option value="" disabled selected>Выберите город</option>
+                                        <!-- Loaded dynamically via config.js -->
+                                    </select>
+                                </div>
+
+                                <!-- Districts (Dynamic checkboxes) -->
+                                <div class="filter-group form-full" id="aptDistrictsWrapper" style="display:none;">
+                                    <label>Районы/Микрорайоны жилья (Выберите один или несколько) <span class="required">*</span></label>
+                                    <div id="aptDistrictsContainer" class="district-selector" style="max-height: 150px;">
+                                        <!-- loaded dynamically -->
+                                    </div>
+                                </div>
+
+                                <!-- Address -->
+                                <div class="filter-group">
+                                    <label for="aptAddress">Адрес квартиры <span class="required">*</span></label>
+                                    <input type="text" id="aptAddress" class="form-control" placeholder="пр. Аль-Фараби 77" autocomplete="off">
+                                </div>
+
+                                <!-- 2GIS Map URL -->
+                                <div class="filter-group">
+                                    <label for="aptGisLink">Ссылка на адрес в 2GIS <span class="required">*</span></label>
+                                    <input type="url" id="aptGisLink" class="form-control" placeholder="https://2gis.kz/almaty/search/...">
+                                </div>
+
+                                <!-- Budget Range -->
+                                <div class="filter-group form-full">
+                                    <label>Стоимость аренды (₸) <span class="required">*</span></label>
+                                    <div style="display: flex; gap: 0.75rem;">
+                                        <input type="text" id="aptBudgetMin" class="form-control" placeholder="От 10 000" style="flex: 1;">
+                                        <input type="text" id="aptBudgetMax" class="form-control" placeholder="До 1 000 000" style="flex: 1;">
+                                    </div>
+                                </div>
+
+                                <!-- Total Residents -->
+                                <div class="filter-group">
+                                    <label for="aptTotalResidents">Всего людей будет жить в квартире <span class="required">*</span></label>
+                                    <select id="aptTotalResidents" class="form-control">
+                                        <option value="" disabled selected>Выберите количество</option>
+                                        <option value="1">1 человек</option>
+                                        <option value="2">2 человека</option>
+                                        <option value="3">3 человека</option>
+                                        <option value="4">4 человека</option>
+                                        <option value="5">5 человек</option>
+                                        <option value="6plus">6+ человек</option>
+                                    </select>
+                                </div>
+
+                                <!-- Roommates sought -->
+                                <div class="filter-group">
+                                    <label for="aptRoommateCount">Сколько сожителей ищете <span class="required">*</span></label>
+                                    <select id="aptRoommateCount" class="form-control">
+                                        <option value="" disabled selected>Выберите количество</option>
+                                        <option value="1">1 человек</option>
+                                        <option value="2">2 человека</option>
+                                        <option value="3">3 человека</option>
+                                        <option value="4">4+ человека</option>
+                                    </select>
+                                </div>
+
+                                <!-- Room Count -->
+                                <div class="filter-group">
+                                    <label for="aptRoomCount">Комнат в квартире <span class="required">*</span></label>
+                                    <select id="aptRoomCount" class="form-control">
+                                        <option value="" disabled selected>Выберите комнатность</option>
+                                        <option value="1">1-комнатная</option>
+                                        <option value="2">2-комнатная</option>
+                                        <option value="3">3-комнатная</option>
+                                        <option value="4">4-комнатная</option>
+                                        <option value="5">5+ комнатная</option>
+                                    </select>
+                                </div>
+
+                                <!-- Preferred Age Range (Min/Max) -->
+                                <div class="filter-group form-grid form-full" style="grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 0; padding: 0;">
+                                    <div class="filter-group">
+                                        <label for="aptAgeMin">Возраст сожителя от <span class="required">*</span></label>
+                                        <select id="aptAgeMin" class="form-control">
+                                            <option value="" disabled selected>От</option>
+                                            <!-- dynamic 16 to 50 -->
+                                        </select>
+                                    </div>
+                                    <div class="filter-group">
+                                        <label for="aptAgeMax">Возраст сожителя до <span class="required">*</span></label>
+                                        <select id="aptAgeMax" class="form-control">
+                                            <option value="" disabled selected>До</option>
+                                            <!-- dynamic 16 to 50 -->
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Contract -->
+                                <div class="filter-group">
+                                    <label for="aptContract">Наличие договора <span class="required">*</span></label>
+                                    <select id="aptContract" class="form-control">
+                                        <option value="" disabled selected>Выберите наличие</option>
+                                        <option value="false">Без договора</option>
+                                        <option value="true">С договором</option>
+                                    </select>
+                                </div>
+
+                                <!-- Deposit -->
+                                <div class="filter-group">
+                                    <label for="aptDeposit">Депозит <span class="required">*</span></label>
+                                    <select id="aptDeposit" class="form-control">
+                                        <option value="" disabled selected>Выберите депозит</option>
+                                        <option value="false">Нет депозита</option>
+                                        <option value="true">Есть депозит</option>
+                                    </select>
+                                </div>
+
+                                <!-- Occupation -->
+                                <div class="filter-group">
+                                    <label for="aptOccupation">Род деятельности <span class="required">*</span></label>
+                                    <select id="aptOccupation" class="form-control">
+                                        <option value="" disabled selected>Выберите род деятельности</option>
+                                        <option value="student">Учусь</option>
+                                        <option value="student_work">Учусь и работаю</option>
+                                        <option value="work">Работаю</option>
+                                        <option value="none">Не учусь и не работаю</option>
+                                    </select>
+                                </div>
+
+                                <!-- Gender -->
+                                <div class="filter-group">
+                                    <label for="aptGender">Ваш пол <span class="required">*</span></label>
+                                    <select id="aptGender" class="form-control">
+                                        <option value="" disabled selected>Выберите ваш пол</option>
+                                        <option value="male">Парень</option>
+                                        <option value="female">Девушка</option>
+                                    </select>
+                                </div>
+
+                                <!-- Gender Preference -->
+                                <div class="filter-group">
+                                    <label for="aptGenderPref">С кем хочу жить <span class="required">*</span></label>
+                                    <select id="aptGenderPref" class="form-control">
+                                        <option value="" disabled selected>Выберите пол сожителя</option>
+                                        <option value="any">Не важно</option>
+                                        <option value="male">Только с парнями</option>
+                                        <option value="female">Только с девушками</option>
+                                    </select>
+                                </div>
+
+                                <!-- Phone/WhatsApp -->
+                                <div class="filter-group">
+                                    <label for="aptWhatsapp">Номер телефона (WhatsApp) <span class="required">*</span></label>
+                                    <div class="phone-input-wrapper">
+                                        <span class="phone-prefix">+7</span>
+                                        <input type="text" id="aptWhatsapp" class="form-control phone-input" placeholder="700 000 0000" autocomplete="off">
+                                    </div>
+                                    <span class="phone-tip">Без скобок и дефисов. Пример: 700 000 0000</span>
+                                </div>
+
+                                <!-- Description -->
+                                <div class="filter-group form-full">
+                                    <label for="aptDescription">Описание <span class="required">*</span></label>
+                                    <textarea id="aptDescription" class="form-control" rows="4" style="resize:none;" placeholder="Расскажите о квартире, правилах дома, соседях подробнее..."></textarea>
+                                </div>
+
+                                <!-- Photos -->
+                                <div class="filter-group form-full">
+                                    <label>Фотографии квартиры (максимум 3)</label>
+                                    <input type="file" id="aptPhotoUploadInput" multiple accept="image/*" style="display:none;">
+                                    <div class="image-previews-container" id="aptPhotoPreviews">
+                                        <!-- Dynamic preview boxes -->
+                                    </div>
+                                    <span class="form-tip">Нажмите на плюс, чтобы выбрать фото квартиры.</span>
+                                </div>
+                            </div>
+
+                            <div class="form-actions-footer">
+                                <button type="button" class="btn btn-secondary" onclick="window.switchTab('feed')">Отмена</button>
+                                <button type="submit" class="btn btn-primary" id="aptSubmitBtn" disabled>Опубликовать (0 ₸)</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- VIEW 6: CREATE SEEKER PAGE -->
+                <section class="page-section" id="createSeekerPage" style="display: none;">
+                    <div class="listings-header">
+                        <h2 id="createSeekerTitle">Создать объявление: Ищу квартиру</h2>
+                    </div>
+                    <div class="form-container-card">
+                        <form id="createSeekerForm" onsubmit="handleSeekerSubmit(event)">
+                            <input type="hidden" id="seekerListingId" value="">
+                            <div class="form-grid">
+                                <!-- City -->
+                                <div class="filter-group">
+                                    <label for="seekerCity">Город <span class="required">*</span></label>
+                                    <select id="seekerCity" class="form-control" onchange="updateSeekerDistricts()">
+                                        <option value="" disabled selected>Выберите город</option>
+                                        <!-- Loaded dynamically via config.js -->
+                                    </select>
+                                </div>
+
+                                <!-- Districts (Dynamic checkboxes) -->
+                                <div class="filter-group form-full" id="seekerDistrictsWrapper" style="display:none;">
+                                    <label>Районы/Микрорайоны жилья (Выберите один или несколько) <span class="required">*</span></label>
+                                    <div id="seekerDistrictsContainer" class="district-selector" style="max-height: 150px;">
+                                        <!-- loaded dynamically -->
+                                    </div>
+                                </div>
+
+                                <!-- Budget Range -->
+                                <div class="filter-group form-full">
+                                    <label>Бюджет аренды (₸) <span class="required">*</span></label>
+                                    <div style="display: flex; gap: 0.75rem;">
+                                        <input type="text" id="seekerBudgetMin" class="form-control" placeholder="От 10 000" style="flex: 1;">
+                                        <input type="text" id="seekerBudgetMax" class="form-control" placeholder="До 1 000 000" style="flex: 1;">
+                                    </div>
+                                </div>
+
+                                <!-- Age -->
+                                <div class="filter-group">
+                                    <label for="seekerAge">Ваш возраст <span class="required">*</span></label>
+                                    <select id="seekerAge" class="form-control">
+                                        <option value="" disabled selected>Выберите ваш возраст</option>
+                                        <!-- dynamic 16 to 50 -->
+                                    </select>
+                                </div>
+
+                                <!-- Residents Count -->
+                                <div class="filter-group">
+                                    <label for="seekerResidentsCount">Сколько вас будет заселяться <span class="required">*</span></label>
+                                    <select id="seekerResidentsCount" class="form-control">
+                                        <option value="" disabled selected>Выберите количество</option>
+                                        <option value="1">1 человек</option>
+                                        <option value="2">2 человека</option>
+                                        <option value="3">3 человека</option>
+                                        <option value="4">4 человека</option>
+                                        <option value="5">5 человек</option>
+                                        <option value="6">6 человек</option>
+                                        <option value="7">7 человек</option>
+                                        <option value="8">8 человек</option>
+                                        <option value="9">9 человек</option>
+                                    </select>
+                                </div>
+
+                                <!-- Stay Term -->
+                                <div class="filter-group">
+                                    <label for="seekerStayTerm">Срок проживания <span class="required">*</span></label>
+                                    <select id="seekerStayTerm" class="form-control">
+                                        <option value="" disabled selected>Выберите срок</option>
+                                        <option value="any">Не важно / Всегда</option>
+                                        <option value="1">1 месяц</option>
+                                        <option value="2">2 месяца</option>
+                                        <option value="3">3-6 месяцев</option>
+                                        <option value="6">6-12 месяцев</option>
+                                        <option value="12">12+ месяцев</option>
+                                    </select>
+                                </div>
+
+                                <!-- Deposit Readiness -->
+                                <div class="filter-group">
+                                    <label for="seekerDeposit">Готовность к депозиту <span class="required">*</span></label>
+                                    <select id="seekerDeposit" class="form-control">
+                                        <option value="" disabled selected>Выберите готовность</option>
+                                        <option value="false">Не готов к депозиту</option>
+                                        <option value="true">Готов к депозиту</option>
+                                    </select>
+                                </div>
+
+                                <!-- Occupation -->
+                                <div class="filter-group">
+                                    <label for="seekerOccupation">Род деятельности <span class="required">*</span></label>
+                                    <select id="seekerOccupation" class="form-control">
+                                        <option value="" disabled selected>Выберите род деятельности</option>
+                                        <option value="student">Учусь</option>
+                                        <option value="student_work">Учусь и работаю</option>
+                                        <option value="work">Работаю</option>
+                                        <option value="none">Не учусь и не работаю</option>
+                                    </select>
+                                </div>
+
+                                <!-- Gender -->
+                                <div class="filter-group">
+                                    <label for="seekerGender">Ваш пол <span class="required">*</span></label>
+                                    <select id="seekerGender" class="form-control">
+                                        <option value="" disabled selected>Выберите ваш пол</option>
+                                        <option value="male">Парень</option>
+                                        <option value="female">Девушка</option>
+                                    </select>
+                                </div>
+
+                                <!-- Gender Preference -->
+                                <div class="filter-group">
+                                    <label for="seekerGenderPref">С кем хочу жить <span class="required">*</span></label>
+                                    <select id="seekerGenderPref" class="form-control">
+                                        <option value="" disabled selected>Выберите пол сожителя</option>
+                                        <option value="any">Не важно</option>
+                                        <option value="male">Только с парнями</option>
+                                        <option value="female">Только с девушками</option>
+                                    </select>
+                                </div>
+
+                                <!-- Phone/WhatsApp -->
+                                <div class="filter-group">
+                                    <label for="seekerWhatsapp">Номер телефона (WhatsApp) <span class="required">*</span></label>
+                                    <div class="phone-input-wrapper">
+                                        <span class="phone-prefix">+7</span>
+                                        <input type="text" id="seekerWhatsapp" class="form-control phone-input" placeholder="700 000 0000" autocomplete="off">
+                                    </div>
+                                    <span class="phone-tip">Без скобок и дефисов. Пример: 700 000 0000</span>
+                                </div>
+
+                                <!-- Room Count Filter (Preferred room count) -->
+                                <div class="filter-group">
+                                    <label for="seekerRoomCount">Желаемая комнатность квартиры <span class="required">*</span></label>
+                                    <select id="seekerRoomCount" class="form-control">
+                                        <option value="" disabled selected>Выберите комнатность</option>
+                                        <option value="any">Не важно</option>
+                                        <option value="1">1-комнатная</option>
+                                        <option value="2">2-комнатная</option>
+                                        <option value="3">3-комнатная</option>
+                                        <option value="4">4-комнатная</option>
+                                        <option value="5">5+ комнатная</option>
+                                    </select>
+                                </div>
+
+                                <!-- Roommate Count Filter (Preferred roommates count) -->
+                                <div class="filter-group">
+                                    <label for="seekerRoommateCount">Желаемое число сожителей <span class="required">*</span></label>
+                                    <select id="seekerRoommateCount" class="form-control">
+                                        <option value="" disabled selected>Выберите количество</option>
+                                        <option value="any">Не важно</option>
+                                        <option value="1">1 человек</option>
+                                        <option value="2">2 человека</option>
+                                        <option value="3">3 человека</option>
+                                        <option value="4">4+ человека</option>
+                                    </select>
+                                </div>
+
+                                <!-- Description -->
+                                <div class="filter-group form-full">
+                                    <label for="seekerDescription">Описание <span class="required">*</span></label>
+                                    <textarea id="seekerDescription" class="form-control" rows="4" style="resize:none;" placeholder="Расскажите о себе, бытовых привычках или о том, какую квартиру и сожителей вы ищете..."></textarea>
+                                </div>
+                            </div>
+
+                            <div class="form-actions-footer">
+                                <button type="button" class="btn btn-secondary" onclick="window.switchTab('feed')">Отмена</button>
+                                <button type="submit" class="btn btn-primary" id="seekerSubmitBtn" disabled>Опубликовать (0 ₸)</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
             </div>
         </main>
 
@@ -385,259 +754,7 @@
         </div>
     </div>
 
-    <!-- CREATE/EDIT LISTING MODAL -->
-    <div class="modal-overlay" id="listingModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="listingModalTitle">Создать объявление</h2>
-                <button class="modal-close" onclick="closeModal('listingModal')">&times;</button>
-            </div>
-            <form id="listingForm" onsubmit="handleListingSubmit(event)">
-                <input type="hidden" id="formListingId" value="">
-                <input type="hidden" id="formCategory" value="have_room">
-                
-                <div class="modal-body">
-                    <div class="form-grid">
-                        <!-- Category Switcher Dropdown -->
-                        <div class="filter-group form-full">
-                            <label for="formCategorySelect">Категория объявления</label>
-                            <select id="formCategorySelect" class="form-control" onchange="toggleFormCategory(this.value)">
-                                <option value="need_room">Ищу сожителя / комнату (хочу заселиться)</option>
-                                <option value="have_room">Сдаю комнату / подселение (ищу сожителей)</option>
-                            </select>
-                        </div>
-                        
-                        <!-- Budget Range -->
-                        <div class="filter-group form-full">
-                            <label id="formBudgetLabel">Стоимость аренды (₸)</label>
-                            <div style="display: flex; gap: 0.75rem;">
-                                <input type="text" id="formBudgetMin" class="form-control" placeholder="От 10 000" required style="flex: 1;">
-                                <input type="text" id="formBudgetMax" class="form-control" placeholder="До 1 000 000" required style="flex: 1;">
-                            </div>
-                        </div>
-                        
-                        <!-- Seeker Age (Single Dropdown) -->
-                        <div class="filter-group" id="formAgeSingleGroup">
-                            <label for="formAge" id="formAgeLabel">Ваш возраст</label>
-                            <select id="formAge" class="form-control" required>
-                                <!-- options 16 to 50 populated dynamically -->
-                            </select>
-                        </div>
-
-                        <!-- Landlord Preferred Age (Range Dropdowns) -->
-                        <div class="filter-group form-grid form-full" id="formAgeRangeGroup" style="display:none; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 0; padding: 0;">
-                            <div class="filter-group" style="margin-bottom: 0;">
-                                <label for="formAgeMin">Возраст сожителя от</label>
-                                <select id="formAgeMin" class="form-control">
-                                    <!-- options 16 to 50 populated dynamically -->
-                                </select>
-                            </div>
-                            <div class="filter-group" style="margin-bottom: 0;">
-                                <label for="formAgeMax">Возраст сожителя до</label>
-                                <select id="formAgeMax" class="form-control">
-                                    <!-- options 16 to 50 populated dynamically -->
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- City -->
-                        <div class="filter-group">
-                            <label for="formCity">Город</label>
-                            <select id="formCity" class="form-control" onchange="updateFormDistricts()">
-                                <!-- Loaded dynamically via config.js -->
-                            </select>
-                        </div>
-
-                        <!-- Gender -->
-                        <div class="filter-group">
-                            <label for="formGender" id="formGenderLabel">Ваш пол</label>
-                            <select id="formGender" class="form-control">
-                                <option value="male">Парень</option>
-                                <option value="female">Девушка</option>
-                                <option value="any" id="formGenderAnyOption" style="display:none;">Не важно</option>
-                            </select>
-                        </div>
-
-                        <!-- Gender Preference -->
-                        <div class="filter-group" id="formGenderPrefGroup">
-                            <label for="formGenderPref" id="formGenderPrefLabel">С кем хочу жить</label>
-                            <select id="formGenderPref" class="form-control">
-                                <option value="any">Не важно</option>
-                                <option value="male">Только с парнями</option>
-                                <option value="female">Только с девушками</option>
-                            </select>
-                        </div>
-
-                        <!-- Occupation -->
-                        <div class="filter-group">
-                            <label for="formOccupation">Род деятельности</label>
-                            <select id="formOccupation" class="form-control">
-                                <option value="student">Учусь</option>
-                                <option value="student_work">Учусь и работаю</option>
-                                <option value="work">Работаю</option>
-                                <option value="none">Не учусь и не работаю</option>
-                            </select>
-                        </div>
-
-                        <!-- Phone/WhatsApp -->
-                        <div class="filter-group">
-                            <label for="formWhatsapp">Номер телефона (WhatsApp)</label>
-                            <div style="position:relative;">
-                                <span style="position:absolute; left:12px; top:10px; font-weight:700; color:var(--text-secondary);">+7</span>
-                                <input type="text" id="formWhatsapp" class="form-control" style="padding-left:36px;" placeholder="7771234567" required autocomplete="off">
-                                <div class="autofill-suggestion" id="whatsappSuggestion" style="display:none;"></div>
-                            </div>
-                            <span style="font-size:0.75rem; color:var(--text-muted);">Без скобок и дефисов. Пример: 7771234567.</span>
-                        </div>
-
-                        <!-- Room Count -->
-                        <div class="filter-group">
-                            <label for="formRoomCount" id="formRoomCountLabel">Комнат в квартире</label>
-                            <select id="formRoomCount" class="form-control">
-                                <option value="any">Не важно</option>
-                                <option value="1">1-комнатная</option>
-                                <option value="2">2-комнатная</option>
-                                <option value="3">3-комнатная</option>
-                                <option value="4">4-комнатная</option>
-                                <option value="5">5-комнатная</option>
-                                <option value="6">6-комнатная</option>
-                                <option value="7">7-комнатная</option>
-                                <option value="8">8-комнатная</option>
-                                <option value="9">9+ комнатная</option>
-                            </select>
-                        </div>
-
-                        <!-- Roommates count -->
-                        <div class="filter-group">
-                            <label for="formRoommateCount" id="formRoommateLabel">Сколько сожителей</label>
-                            <select id="formRoommateCount" class="form-control">
-                                <option value="any">Не важно</option>
-                                <option value="1">1 человек</option>
-                                <option value="2">2 человека</option>
-                                <option value="3">3 человека</option>
-                                <option value="4">4 человека</option>
-                                <option value="5">5 человек</option>
-                                <option value="6">6 человек</option>
-                                <option value="7">7 человек</option>
-                                <option value="8">8 человек</option>
-                                <option value="9">9 человек</option>
-                                <option value="10">10 человек</option>
-                            </select>
-                        </div>
-
-                        <!-- Deposit readiness / presence -->
-                        <div class="filter-group" id="formDepositGroup">
-                            <label for="formDeposit" id="formDepositLabel">Депозит</label>
-                            <select id="formDeposit" class="form-control">
-                                <option value="false">Нет депозита / Не готов к депозиту</option>
-                                <option value="true">Есть депозит / Готов к депозиту</option>
-                            </select>
-                        </div>
-
-                        <!-- Stay Term (Category A only) -->
-                        <div class="filter-group" id="formStayTermGroup" style="display:none;">
-                            <label for="formStayTerm">Срок проживания</label>
-                            <select id="formStayTerm" class="form-control">
-                                <option value="any">Не важно / Всегда</option>
-                                <option value="1">1 месяц</option>
-                                <option value="2">2 месяца</option>
-                                <option value="3">3-6 месяцев</option>
-                                <option value="6">6-12 месяцев</option>
-                                <option value="12">12+ месяцев</option>
-                            </select>
-                        </div>
-
-                        <!-- Residents Count (Category A only) -->
-                        <div class="filter-group" id="formResidentsCountGroup" style="display:none;">
-                            <label for="formResidentsCount" id="formResidentsCountLabel">Сколько вас будет заселяться?</label>
-                            <select id="formResidentsCount" class="form-control">
-                                <option value="1">1 человек</option>
-                                <option value="2">2 человека</option>
-                                <option value="3">3 человека</option>
-                                <option value="4">4 человека</option>
-                                <option value="5">5 человек</option>
-                                <option value="6">6 человек</option>
-                                <option value="7">7 человек</option>
-                                <option value="8">8 человек</option>
-                                <option value="9">9 человек</option>
-                            </select>
-                        </div>
-
-                        <!-- Have Room Specific Section -->
-                        <div class="form-full form-grid" id="haveRoomDetails" style="display:none; grid-template-columns: 1fr 1fr; margin-bottom: 0; padding: 0; gap: 1.25rem;">
-                            <!-- Address -->
-                            <div class="filter-group">
-                                <label for="formAddress">Адрес квартиры</label>
-                                <div style="position:relative; width: 100%;">
-                                    <input type="text" id="formAddress" class="form-control" placeholder="пр. Аль-Фараби 77" autocomplete="off">
-                                    <div class="autofill-suggestion" id="addressSuggestion" style="display:none;"></div>
-                                </div>
-                            </div>
-
-                            <!-- 2GIS Map URL -->
-                            <div class="filter-group">
-                                <label for="formGisLink">Ссылка на адрес в 2GIS</label>
-                                <input type="url" id="formGisLink" class="form-control" placeholder="https://2gis.kz/almaty/search/...">
-                            </div>
-
-                            <!-- Total Residents (Category B only) -->
-                            <div class="filter-group">
-                                <label for="formTotalResidents">Всего людей будет жить в квартире</label>
-                                <select id="formTotalResidents" class="form-control">
-                                    <option value="1">1 человек</option>
-                                    <option value="2">2 человека</option>
-                                    <option value="3">3 человека</option>
-                                    <option value="4">4 человека</option>
-                                    <option value="5">5 человек</option>
-                                    <option value="6plus">6+ человек</option>
-                                </select>
-                            </div>
-
-                            <!-- Contract -->
-                            <div class="filter-group">
-                                <label for="formContract">Наличие договора</label>
-                                <select id="formContract" class="form-control">
-                                    <option value="false">Без договора</option>
-                                    <option value="true">С договором</option>
-                                    <option value="any">Не важно</option>
-                                </select>
-                            </div>
-
-                        </div>
-
-                        <!-- Photo Upload Block (Common for both categories, dynamically adjusted) -->
-                        <div class="filter-group form-full">
-                            <label id="formPhotosLabel">Фотографии квартиры</label>
-                            <input type="file" id="formPhotoUploadInput" multiple accept="image/*" style="display:none;">
-                            <div class="image-previews-container" id="photoPreviews">
-                                <!-- Dynamic preview boxes -->
-                            </div>
-                            <span id="formPhotosSubtitle" style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem; display:block;">Нажмите на плюс, чтобы выбрать фото квартиры.</span>
-                        </div>
-
-                        <!-- Districts Multiple Tag Selection -->
-                        <div class="filter-group form-full" id="formDistrictsWrapper">
-                            <label id="formDistrictsLabel">Районы/Микрорайоны жилья (Выберите один или несколько)</label>
-                            <div id="formDistrictsContainer" class="district-selector" style="max-height: 150px;">
-                                <!-- districts tags list loaded dynamically -->
-                            </div>
-                        </div>
-
-                        <!-- Description -->
-                        <div class="filter-group form-full">
-                            <label for="formDescription">Описание</label>
-                            <textarea id="formDescription" class="form-control" rows="4" style="resize:none;" placeholder="Расскажите о себе, бытовых привычках или о квартире подробнее..."></textarea>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('listingModal')">Отмена</button>
-                    <button type="submit" class="btn btn-lime" id="formSubmitBtn">Опубликовать (0 ₸)</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <!-- CREATE/EDIT LISTING MODAL REMOVED (STANDALONE PAGES ARE USED INSTEAD) -->
 
     <!-- PROMOTION BOOST MODAL -->
     <div class="modal-overlay" id="promoModal">
@@ -689,6 +806,24 @@
                     </p>
                     <button class="btn btn-lime" onclick="processMockPayment()" style="width:100%;">Я оплатил (Симуляция оплаты)</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHOOSE CREATION TYPE MODAL -->
+    <div class="modal-overlay" id="createChoiceModal">
+        <div class="modal-content" style="max-width: 400px; text-align: center; border-radius: var(--radius-md);">
+            <div class="modal-header">
+                <h2>Выберите тип объявления</h2>
+                <button class="modal-close" onclick="closeModal('createChoiceModal')">&times;</button>
+            </div>
+            <div class="modal-body" style="display: flex; flex-direction: column; gap: 1rem; padding: 1.5rem 0;">
+                <button class="btn btn-primary" onclick="closeModal('createChoiceModal'); window.switchTab('createApartment')" style="width: 100%; padding: 1rem;">
+                    Ищу соседа (Сдаю комнату)
+                </button>
+                <button class="btn btn-secondary" onclick="closeModal('createChoiceModal'); window.switchTab('createSeeker')" style="width: 100%; padding: 1rem; border: 1px solid var(--accent-violet); color: var(--accent-violet);">
+                    Ищу квартиру (Заселюсь)
+                </button>
             </div>
         </div>
     </div>

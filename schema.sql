@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS public.listings (
     roommate_count INTEGER,
     total_residents INTEGER,
     residents_count INTEGER DEFAULT 1,
+    stay_term TEXT,
     gender_pref TEXT,
     description TEXT,
     photos TEXT[] DEFAULT '{}',
@@ -59,6 +60,8 @@ CREATE POLICY "Allow owners or admins to delete/archive" ON public.listings
 ALTER TABLE public.listings ADD COLUMN IF NOT EXISTS age_min INTEGER;
 ALTER TABLE public.listings ADD COLUMN IF NOT EXISTS age_max INTEGER;
 ALTER TABLE public.listings ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.listings ADD COLUMN IF NOT EXISTS stay_term TEXT;
+
 
 
 

@@ -297,14 +297,8 @@ app.post('/api/listings', authenticateToken, createListingLimiter, async (req, r
         const cleanPhotos = Array.isArray(photos)
             ? photos.map(url => url.trim()).filter(url => url !== '' && isValidPhotoUrl(url))
             : [];
-        if (category === 'have_room') {
-            if (cleanPhotos.length < 3 || cleanPhotos.length > 6) {
-                return res.status(400).json({ error: 'Необходимо добавить от 3 до 6 фотографий квартиры' });
-            }
-        } else {
-            if (cleanPhotos.length > 3) {
-                return res.status(400).json({ error: 'Для анкеты соискателя можно добавить максимум 3 селфи/аватарки' });
-            }
+        if (cleanPhotos.length > 3) {
+            return res.status(400).json({ error: 'Максимальное количество фотографий — 3' });
         }
 
         const gPref = genderPref && ['male', 'female', 'any'].includes(genderPref) ? genderPref : 'any';
@@ -438,14 +432,8 @@ app.put('/api/listings/:id', authenticateToken, async (req, res) => {
         const cleanPhotos = Array.isArray(photos)
             ? photos.map(url => url.trim()).filter(url => url !== '' && isValidPhotoUrlEdit(url))
             : [];
-        if (listing.category === 'have_room') {
-            if (cleanPhotos.length < 3 || cleanPhotos.length > 6) {
-                return res.status(400).json({ error: 'Необходимо добавить от 3 до 6 фотографий квартиры' });
-            }
-        } else {
-            if (cleanPhotos.length > 3) {
-                return res.status(400).json({ error: 'Для анкеты соискателя можно добавить максимум 3 селфи/аватарки' });
-            }
+        if (cleanPhotos.length > 3) {
+            return res.status(400).json({ error: 'Максимальное количество фотографий — 3' });
         }
 
         const gPref = genderPref && ['male', 'female', 'any'].includes(genderPref) ? genderPref : 'any';
@@ -814,23 +802,39 @@ app.post('/api/payments/kaspi-webhook', paymentLimiter, async (req, res) => {
         // [SECURITY] Verify HMAC-SHA256 signature (NOT plain SHA256!)
         // HMAC is resistant to length-extension attacks unlike plain SHA256
         const secret = process.env.KASPI_WEBHOOK_SECRET;
-        if (!secret) {
-            console.error('[Payment Webhook] KASPI_WEBHOOK_SECRET is not set! Rejecting all webhook requests.');
-            return res.status(503).json({ error: 'Платёжный сервис временно недоступен' });
-        }
+        let signaturesMatch = false;
 
-        // Calculate expected HMAC-SHA256 signature
         const signSource = JSON.stringify(payload);
-        const expectedSignature = crypto
-            .createHmac('sha256', secret)
-            .update(signSource)
-            .digest('hex');
 
-        // [SECURITY] Use timing-safe comparison to prevent timing attacks
-        const sigBuffer = Buffer.from(signature || '', 'hex');
-        const expBuffer = Buffer.from(expectedSignature, 'hex');
-        const signaturesMatch = sigBuffer.length === expBuffer.length &&
-            crypto.timingSafeEqual(sigBuffer, expBuffer);
+        if (!secret) {
+            if (!IS_PRODUCTION) {
+                // In local development, if secret is not set, verify using client-generated plain SHA256
+                const localExpectedSignature = crypto
+                    .createHash('sha256')
+                    .update(signSource)
+                    .digest('hex');
+                signaturesMatch = (signature === localExpectedSignature);
+                if (signaturesMatch) {
+                    console.log('[Payment Webhook] Local development signature verified successfully via plain SHA-256 fallback.');
+                }
+            }
+            if (!signaturesMatch) {
+                console.error('[Payment Webhook] KASPI_WEBHOOK_SECRET is not set! Rejecting all webhook requests.');
+                return res.status(503).json({ error: 'Платёжный сервис временно недоступен' });
+            }
+        } else {
+            // Calculate expected HMAC-SHA256 signature
+            const expectedSignature = crypto
+                .createHmac('sha256', secret)
+                .update(signSource)
+                .digest('hex');
+
+            // [SECURITY] Use timing-safe comparison to prevent timing attacks
+            const sigBuffer = Buffer.from(signature || '', 'hex');
+            const expBuffer = Buffer.from(expectedSignature, 'hex');
+            signaturesMatch = sigBuffer.length === expBuffer.length &&
+                crypto.timingSafeEqual(sigBuffer, expBuffer);
+        }
 
         if (!signaturesMatch) {
             console.warn('[Payment Webhook] Signature mismatch for txn_id:', txn_id);

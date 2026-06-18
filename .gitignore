@@ -5,3 +5,6 @@ Thumbs.db
 .idea/
 .gemini/
 *.log
+.cache/
+server_listings.json
+

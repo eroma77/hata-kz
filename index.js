@@ -509,7 +509,9 @@ function renderListings() {
         if (item.city !== cityFilter) return false;
         
         // Match range bounds
-        if (item.budget < budgetMinVal || item.budget > budgetMaxVal) return false;
+        const itemMin = item.budgetMin || item.budget || 0;
+        const itemMax = item.budgetMax || item.budget || 0;
+        if (itemMax < budgetMinVal || itemMin > budgetMaxVal) return false;
         
         if (genderFilter !== 'any' && item.gender !== genderFilter) return false;
         
@@ -652,7 +654,12 @@ function renderListings() {
                         </div>
                     </div>
                     
-                    <div class="card-title">${formatNumberWithSpaces(item.budget)} ₸ <span>/ мес</span></div>
+                    <div class="card-title">
+                        ${(item.budgetMin && item.budgetMax && item.budgetMin !== item.budgetMax) ? 
+                          `от ${formatNumberWithSpaces(item.budgetMin)} до ${formatNumberWithSpaces(item.budgetMax)} ₸` : 
+                          `${formatNumberWithSpaces(item.budgetMax || item.budget || 0)} ₸`} 
+                        <span>/ мес</span>
+                    </div>
                     
                     <div class="card-tags">
                         <span class="card-tag accent">${genderLabel}, ${item.age} лет</span>
@@ -763,7 +770,7 @@ function renderUserProfile() {
         return `
             <div class="user-listing-item">
                 <div class="item-info">
-                    <div class="item-title">${catLabel} - ${formatNumberWithSpaces(item.budget)} ₸</div>
+                    <div class="item-title">${catLabel} - ${(item.budgetMin && item.budgetMax && item.budgetMin !== item.budgetMax) ? `от ${formatNumberWithSpaces(item.budgetMin)} до ${formatNumberWithSpaces(item.budgetMax)}` : `${formatNumberWithSpaces(item.budgetMax || item.budget)}`} ₸</div>
                     <div class="item-meta">
                         <span>Дата: ${dateStr}</span>
                         <span>Город: ${HataConfig.cities[item.city].name}</span>
@@ -780,28 +787,28 @@ function renderUserProfile() {
     lucide.createIcons();
 }
 
-window.archiveListing = function(id) {
+window.archiveListing = async function(id) {
     if (confirm("Вы уверены, что хотите убрать объявление в архив?")) {
         try {
-            db.archiveListing(id);
+            await db.archiveListing(id);
         } catch (e) {
             alert(e.message);
         }
     }
 };
 
-window.reactivateListing = function(id) {
+window.reactivateListing = async function(id) {
     try {
-        db.reactivateListing(id);
+        await db.reactivateListing(id);
     } catch (e) {
         alert(e.message);
     }
 };
 
-window.deleteListing = function(id) {
+window.deleteListing = async function(id) {
     if (confirm("Удалить объявление навсегда? Это действие необратимо.")) {
         try {
-            db.deleteListing(id);
+            await db.deleteListing(id);
         } catch (e) {
             alert(e.message);
         }
@@ -815,16 +822,22 @@ function initForm() {
         createListingBtn.addEventListener('click', () => openListingForm());
     }
     
-    // Setup formatting and validations on creation form budget
-    const formBudget = document.getElementById('formBudget');
-    attachNumberFormatting(formBudget, validateFormBudgetBounds);
+    // Setup formatting and validations on creation form budget (Min & Max)
+    const formBudgetMin = document.getElementById('formBudgetMin');
+    const formBudgetMax = document.getElementById('formBudgetMax');
+    if (formBudgetMin) attachNumberFormatting(formBudgetMin, validateFormBudgetBounds);
+    if (formBudgetMax) attachNumberFormatting(formBudgetMax, validateFormBudgetBounds);
     
-    // Setup numbers formatting on age (strip non-digits, max length 2)
+    // Populate formAge dropdown (16 to 50 years)
     const formAge = document.getElementById('formAge');
     if (formAge) {
-        formAge.addEventListener('input', (e) => {
-            e.target.value = e.target.value.replace(/\D/g, '').substring(0, 2);
-        });
+        formAge.innerHTML = '';
+        for (let i = 16; i <= 50; i++) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = `${i} ${getRussianAgeSuffix(i)}`;
+            formAge.appendChild(opt);
+        }
     }
 
     // Setup mask on phone (WhatsApp)
@@ -837,6 +850,15 @@ function initForm() {
 
     setupAutofillPopup(formWhatsapp, document.getElementById('whatsappSuggestion'), 'whatsapp');
     setupAutofillPopup(document.getElementById('formAddress'), document.getElementById('addressSuggestion'), 'address');
+}
+
+function getRussianAgeSuffix(age) {
+    const lastDigit = age % 10;
+    const lastTwoDigits = age % 100;
+    if (lastTwoDigits >= 11 && lastTwoDigits <= 14) return 'лет';
+    if (lastDigit === 1) return 'год';
+    if (lastDigit >= 2 && lastDigit <= 4) return 'года';
+    return 'лет';
 }
 
 function getStayTermLabel(term) {
@@ -896,16 +918,27 @@ function setupAutofillPopup(inputEl, suggestionContainerEl, key, formatFn = null
 }
 
 function validateFormBudgetBounds() {
-    const budgetEl = document.getElementById('formBudget');
-    const val = parseFormattedNumber(budgetEl.value);
+    const budgetMinEl = document.getElementById('formBudgetMin');
+    const budgetMaxEl = document.getElementById('formBudgetMax');
+    const minVal = budgetMinEl ? parseFormattedNumber(budgetMinEl.value) : 0;
+    const maxVal = budgetMaxEl ? parseFormattedNumber(budgetMaxEl.value) : 0;
     const submitBtn = document.getElementById('formSubmitBtn');
     
-    if (budgetEl.value && (val < 10000 || val > 1000000)) {
-        budgetEl.classList.add('is-invalid');
-        if (submitBtn) submitBtn.disabled = true;
-    } else {
-        budgetEl.classList.remove('is-invalid');
-        if (submitBtn) submitBtn.disabled = false;
+    let isMinInvalid = budgetMinEl && budgetMinEl.value && (minVal < 10000 || minVal > 1000000);
+    let isMaxInvalid = budgetMaxEl && budgetMaxEl.value && (maxVal < 10000 || maxVal > 1000000);
+    let isRelationInvalid = budgetMinEl && budgetMinEl.value && budgetMaxEl && budgetMaxEl.value && (minVal > maxVal);
+    
+    if (budgetMinEl) {
+        if (isMinInvalid || isRelationInvalid) budgetMinEl.classList.add('is-invalid');
+        else budgetMinEl.classList.remove('is-invalid');
+    }
+    if (budgetMaxEl) {
+        if (isMaxInvalid || isRelationInvalid) budgetMaxEl.classList.add('is-invalid');
+        else budgetMaxEl.classList.remove('is-invalid');
+    }
+    
+    if (submitBtn) {
+        submitBtn.disabled = (isMinInvalid || isMaxInvalid || isRelationInvalid);
     }
 }
 
@@ -914,23 +947,27 @@ window.toggleFormCategory = function(category) {
     
     const detailsBlock = document.getElementById('haveRoomDetails');
     const stayTermBlock = document.getElementById('formStayTermGroup');
+    const residentsCountBlock = document.getElementById('formResidentsCountGroup');
     const genderAnyOpt = document.getElementById('formGenderAnyOption');
     const genderSelect = document.getElementById('formGender');
     
     if (category === 'have_room') {
         if (detailsBlock) detailsBlock.style.display = 'grid';
         if (stayTermBlock) stayTermBlock.style.display = 'none';
+        if (residentsCountBlock) residentsCountBlock.style.display = 'none';
         if (genderAnyOpt) genderAnyOpt.style.display = 'block';
         
-        document.getElementById('formBudgetLabel').textContent = 'Стоимость аренды (₸/мес) *';
-        document.getElementById('formGenderLabel').textContent = 'Кого вы ищете (Пол сожителя) *';
-        document.getElementById('formRoommateLabel').textContent = 'Сколько человек ищете *';
-        document.getElementById('formRoomCountLabel').textContent = 'Комнат в квартире *';
-        document.getElementById('formDepositLabel').textContent = 'Депозит *';
+        document.getElementById('formBudgetMinLabel').textContent = 'Стоимость аренды от (₸/мес)';
+        document.getElementById('formBudgetMaxLabel').textContent = 'Стоимость аренды до (₸/мес)';
+        document.getElementById('formGenderLabel').textContent = 'Кого вы ищете (Пол сожителя)';
+        document.getElementById('formRoommateLabel').textContent = 'Сколько человек ищете';
+        document.getElementById('formRoomCountLabel').textContent = 'Комнат в квартире';
+        document.getElementById('formDepositLabel').textContent = 'Депозит';
         initFormPhotoPreviews();
     } else {
         if (detailsBlock) detailsBlock.style.display = 'none';
         if (stayTermBlock) stayTermBlock.style.display = 'block';
+        if (residentsCountBlock) residentsCountBlock.style.display = 'block';
         if (genderAnyOpt) {
             genderAnyOpt.style.display = 'none';
             if (genderSelect.value === 'any') {
@@ -938,11 +975,12 @@ window.toggleFormCategory = function(category) {
             }
         }
         
-        document.getElementById('formBudgetLabel').textContent = 'Ваш бюджет (₸/мес) *';
-        document.getElementById('formGenderLabel').textContent = 'Ваш пол *';
-        document.getElementById('formRoommateLabel').textContent = 'С кем хотите жить *';
-        document.getElementById('formRoomCountLabel').textContent = 'Сколько комнат нужно *';
-        document.getElementById('formDepositLabel').textContent = 'Готовность внести депозит *';
+        document.getElementById('formBudgetMinLabel').textContent = 'Ваш бюджет от (₸/мес)';
+        document.getElementById('formBudgetMaxLabel').textContent = 'Ваш бюджет до (₸/мес)';
+        document.getElementById('formGenderLabel').textContent = 'Ваш пол';
+        document.getElementById('formRoommateLabel').textContent = 'С кем хотите жить';
+        document.getElementById('formRoomCountLabel').textContent = 'Сколько комнат нужно';
+        document.getElementById('formDepositLabel').textContent = 'Готовность внести депозит';
     }
 };
 
@@ -957,6 +995,9 @@ function openListingForm(id = null) {
     form.reset();
     selectedFormDistricts.clear();
     formImagesList = [];
+    
+    // Explicitly set default city key to fix districts loading bug
+    document.getElementById('formCity').value = 'almaty';
     
     const title = document.getElementById('listingModalTitle');
     const submitBtn = document.getElementById('formSubmitBtn');
@@ -993,24 +1034,33 @@ function openListingForm(id = null) {
                 initFormPhotoPreviews();
             } else {
                 document.getElementById('formStayTerm').value = item.stayTerm || 'any';
+                document.getElementById('formResidentsCount').value = item.residentsCount || '1';
             }
             
-            document.getElementById('formBudget').value = formatNumberWithSpaces(item.budget);
-            document.getElementById('formAge').value = item.age;
+            document.getElementById('formBudgetMin').value = formatNumberWithSpaces(item.budgetMin || item.budget || 0);
+            document.getElementById('formBudgetMax').value = formatNumberWithSpaces(item.budgetMax || item.budget || 0);
+            document.getElementById('formAge').value = item.age || '20';
             document.getElementById('formCity').value = item.city;
             document.getElementById('formGender').value = item.gender;
+            document.getElementById('formGenderPref').value = item.genderPref || 'any';
             document.getElementById('formOccupation').value = item.occupation;
             document.getElementById('formWhatsapp').value = item.whatsapp;
             document.getElementById('formRoomCount').value = item.roomCount;
             document.getElementById('formRoommateCount').value = item.roommateCount;
             document.getElementById('formDeposit').value = item.hasDeposit ? 'true' : 'false';
-            document.getElementById('formDescription').value = item.description;
+            document.getElementById('formDescription').value = item.description || '';
             
             selectedFormDistricts = new Set(item.districts);
         }
     } else {
         title.textContent = 'Создать объявление';
         document.getElementById('formListingId').value = '';
+        document.getElementById('formBudgetMin').value = '';
+        document.getElementById('formBudgetMax').value = '';
+        document.getElementById('formAge').value = '20';
+        document.getElementById('formGenderPref').value = 'any';
+        document.getElementById('formResidentsCount').value = '1';
+        document.getElementById('formDescription').value = '';
         
         const suggestions = db.getAutoFillSuggestions(user.id);
         if (suggestions.gender) document.getElementById('formGender').value = suggestions.gender;
@@ -1039,22 +1089,43 @@ window.updateFormDistricts = function() {
     
     wrapper.style.display = 'block';
     
+    // 1. Add "Любой / Не важно" pill
+    const anyPill = document.createElement('div');
+    anyPill.className = 'district-pill';
+    if (selectedFormDistricts.has('Любой / Не важно') || selectedFormDistricts.size === 0) {
+        anyPill.classList.add('selected');
+        selectedFormDistricts.add('Любой / Не важно');
+    }
+    anyPill.textContent = 'Любой / Не важно';
+    anyPill.addEventListener('click', () => {
+        selectedFormDistricts.clear();
+        selectedFormDistricts.add('Любой / Не важно');
+        updateFormDistricts();
+    });
+    container.appendChild(anyPill);
+
+    // 2. Add other districts
     if (cityInfo.districts) {
         cityInfo.districts.forEach(district => {
             const pill = document.createElement('div');
             pill.className = 'district-pill';
-            if (selectedFormDistricts.has(district)) {
+            if (selectedFormDistricts.has(district) && !selectedFormDistricts.has('Любой / Не важно')) {
                 pill.classList.add('selected');
             }
             pill.textContent = district;
             pill.addEventListener('click', () => {
+                if (selectedFormDistricts.has('Любой / Не важно')) {
+                    selectedFormDistricts.delete('Любой / Не важно');
+                }
                 if (selectedFormDistricts.has(district)) {
                     selectedFormDistricts.delete(district);
-                    pill.classList.remove('selected');
                 } else {
                     selectedFormDistricts.add(district);
-                    pill.classList.add('selected');
                 }
+                if (selectedFormDistricts.size === 0) {
+                    selectedFormDistricts.add('Любой / Не важно');
+                }
+                updateFormDistricts();
             });
             container.appendChild(pill);
         });
@@ -1109,33 +1180,43 @@ function addFormImageMock() {
     initFormPhotoPreviews();
 }
 
-window.handleListingSubmit = function(event) {
+window.handleListingSubmit = async function(event) {
     event.preventDefault();
     
     const id = document.getElementById('formListingId').value;
     const category = document.getElementById('formCategory').value;
     
-    const budget = parseFormattedNumber(document.getElementById('formBudget').value);
+    const budgetMin = parseFormattedNumber(document.getElementById('formBudgetMin').value);
+    const budgetMax = parseFormattedNumber(document.getElementById('formBudgetMax').value);
     
-    if (budget < 10000 || budget > 1000000) {
-        alert("Ошибка: Допустимый бюджет от 10 000 до 1 000 000 тенге.");
+    if (isNaN(budgetMin) || budgetMin < 10000 || budgetMin > 1000000) {
+        alert("Ошибка: Минимальная цена должна быть от 10 000 до 1 000 000 тенге.");
+        return;
+    }
+    if (isNaN(budgetMax) || budgetMax < 10000 || budgetMax > 1000000) {
+        alert("Ошибка: Максимальная цена должна быть от 10 000 до 1 000 000 тенге.");
+        return;
+    }
+    if (budgetMin > budgetMax) {
+        alert("Ошибка: Цена 'от' не может превышать цену 'до'.");
         return;
     }
     
     const age = parseInt(document.getElementById('formAge').value);
-    if (!age || age < 16 || age > 99) {
-        alert("Пожалуйста, введите корректный возраст (от 16 до 99 лет)");
+    if (!age || age < 16 || age > 50) {
+        alert("Пожалуйста, укажите возраст от 16 до 50 лет.");
         return;
     }
     
     const city = document.getElementById('formCity').value;
     const gender = document.getElementById('formGender').value;
+    const genderPref = document.getElementById('formGenderPref').value;
     const occupation = document.getElementById('formOccupation').value;
     const whatsapp = document.getElementById('formWhatsapp').value;
     const roomCount = document.getElementById('formRoomCount').value === 'any' ? 'any' : parseInt(document.getElementById('formRoomCount').value);
     const roommateCount = document.getElementById('formRoommateCount').value === 'any' ? 'any' : parseInt(document.getElementById('formRoommateCount').value);
     const hasDeposit = document.getElementById('formDeposit').value === 'true';
-    const description = document.getElementById('formDescription').value;
+    const description = document.getElementById('formDescription').value || '';
     
     const cityInfo = HataConfig.cities[city];
     let districts = [];
@@ -1150,12 +1231,15 @@ window.handleListingSubmit = function(event) {
     
     const payload = {
         category,
-        budget,
+        budgetMin,
+        budgetMax,
+        budget: budgetMax, // fallback for schema / old queries
         age,
         city,
         districts,
         whatsapp,
         gender,
+        genderPref,
         occupation,
         roomCount,
         roommateCount,
@@ -1185,21 +1269,24 @@ window.handleListingSubmit = function(event) {
         payload.totalResidents = totalResidents;
         payload.hasContract = hasContract;
         payload.stayTerm = "any";
+        payload.residentsCount = 1;
     } else {
         const stayTerm = document.getElementById('formStayTerm').value;
+        const residentsCount = parseInt(document.getElementById('formResidentsCount').value) || 1;
         payload.address = "";
         payload.gisLink = "";
         payload.photos = [];
         payload.totalResidents = "1";
         payload.hasContract = false;
         payload.stayTerm = stayTerm;
+        payload.residentsCount = residentsCount;
     }
     
     try {
         if (id) {
-            db.updateListing(id, payload);
+            await db.updateListing(id, payload);
         } else {
-            db.addListing(payload);
+            await db.addListing(payload);
         }
         closeModal('listingModal');
     } catch (e) {
@@ -1239,13 +1326,13 @@ window.selectPromoOption = function(optId, days) {
 
 window.processMockPayment = function() {
     if (!activePromoListingId) return;
-    try {
-        db.boostListing(activePromoListingId, activePromoDays);
-        closeModal('promoModal');
-        alert(`Оплата прошла успешно! Ваше объявление поднято в ТОП на ${activePromoDays} дней.`);
-    } catch (e) {
-        alert(e.message);
-    }
+    const config = loadConfig();
+    let price = config.pricing.promo3Days;
+    if (activePromoDays === 7) price = config.pricing.promoWeek;
+    else if (activePromoDays === 30) price = config.pricing.promoMonth;
+    
+    // Redirect to the server checkout page
+    window.location.href = `/api/payments/pay?listingId=${activePromoListingId}&amount=${price}`;
 };
 
 // --- ADMIN DASHBOARD ---
@@ -1340,7 +1427,7 @@ function renderAdminModerationList() {
                 <td style="padding: 0.75rem;">${catLabel}</td>
                 <td style="padding: 0.75rem;">${item.ownerName}</td>
                 <td style="padding: 0.75rem;" title="${item.districts.join(', ')}">${districtsStr}</td>
-                <td style="padding: 0.75rem; font-weight:700;">${formatNumberWithSpaces(item.budget)} ₸</td>
+                <td style="padding: 0.75rem; font-weight:700;">${(item.budgetMin && item.budgetMax && item.budgetMin !== item.budgetMax) ? `${formatNumberWithSpaces(item.budgetMin)} - ${formatNumberWithSpaces(item.budgetMax)}` : `${formatNumberWithSpaces(item.budgetMax || item.budget)}`} ₸</td>
                 <td style="padding: 0.75rem; text-align:center;">
                     <button class="btn btn-danger" style="padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="deleteListing('${item.id}')">Удалить</button>
                 </td>
@@ -1611,7 +1698,12 @@ function renderFavorites() {
                         </div>
                     </div>
                     
-                    <div class="card-title">${formatNumberWithSpaces(item.budget)} ₸ <span>/ мес</span></div>
+                    <div class="card-title">
+                        ${(item.budgetMin && item.budgetMax && item.budgetMin !== item.budgetMax) ? 
+                          `от ${formatNumberWithSpaces(item.budgetMin)} до ${formatNumberWithSpaces(item.budgetMax)} ₸` : 
+                          `${formatNumberWithSpaces(item.budgetMax || item.budget || 0)} ₸`} 
+                        <span>/ мес</span>
+                    </div>
                     
                     <div class="card-tags">
                         <span class="card-tag accent">${genderLabel}, ${item.age} лет</span>

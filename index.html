@@ -197,7 +197,7 @@
 
                 <!-- Districts Multi-select -->
                 <div class="filter-group" id="filterDistrictsWrapper" style="margin-top: 1rem;">
-                    <label style="margin-bottom: 0.5rem; display: block;" id="filterDistrictsLabel">Выберите районы (можно несколько) *</label>
+                    <label style="margin-bottom: 0.5rem; display: block;" id="filterDistrictsLabel">Выберите районы (можно несколько)</label>
                     <div id="filterDistrictsContainer" class="district-selector">
                         <!-- Loaded dynamically via JS -->
                     </div>
@@ -388,27 +388,36 @@
                     <div class="form-grid">
                         <!-- Category Switcher Dropdown -->
                         <div class="filter-group form-full">
-                            <label for="formCategorySelect">Категория объявления *</label>
+                            <label for="formCategorySelect">Категория объявления</label>
                             <select id="formCategorySelect" class="form-control" onchange="toggleFormCategory(this.value)">
                                 <option value="need_room">Я ищу квартиру (хочу заселиться)</option>
                                 <option value="have_room">Я сдаю квартиру / ищу сожителей</option>
                             </select>
                         </div>
-                        <!-- Budget -->
-                        <div class="filter-group">
-                            <label for="formBudget" id="formBudgetLabel">Бюджет (₸/мес) *</label>
-                            <input type="text" id="formBudget" class="form-control" placeholder="От 10 000 до 1 000 000" required>
+                        
+                        <!-- Budget Min & Max -->
+                        <div class="filter-group form-full form-grid" style="grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 0; padding: 0;">
+                            <div class="filter-group">
+                                <label for="formBudgetMin" id="formBudgetMinLabel">Цена от (₸/мес)</label>
+                                <input type="text" id="formBudgetMin" class="form-control" placeholder="От 10 000" required>
+                            </div>
+                            <div class="filter-group">
+                                <label for="formBudgetMax" id="formBudgetMaxLabel">Цена до (₸/мес)</label>
+                                <input type="text" id="formBudgetMax" class="form-control" placeholder="До 1 000 000" required>
+                            </div>
                         </div>
                         
                         <!-- Age -->
                         <div class="filter-group">
-                            <label for="formAge">Ваш возраст *</label>
-                            <input type="text" id="formAge" class="form-control" placeholder="Возраст" required>
+                            <label for="formAge" id="formAgeLabel">Ваш возраст</label>
+                            <select id="formAge" class="form-control" required>
+                                <!-- options 16 to 50 populated dynamically -->
+                            </select>
                         </div>
 
                         <!-- City -->
                         <div class="filter-group">
-                            <label for="formCity">Город *</label>
+                            <label for="formCity">Город</label>
                             <select id="formCity" class="form-control" onchange="updateFormDistricts()">
                                 <!-- Loaded dynamically via config.js -->
                             </select>
@@ -416,7 +425,7 @@
 
                         <!-- Gender -->
                         <div class="filter-group">
-                            <label for="formGender" id="formGenderLabel">Ваш пол *</label>
+                            <label for="formGender" id="formGenderLabel">Ваш пол</label>
                             <select id="formGender" class="form-control">
                                 <option value="male">Парень</option>
                                 <option value="female">Девушка</option>
@@ -424,9 +433,19 @@
                             </select>
                         </div>
 
+                        <!-- Gender Preference -->
+                        <div class="filter-group" id="formGenderPrefGroup">
+                            <label for="formGenderPref" id="formGenderPrefLabel">С кем хочу жить</label>
+                            <select id="formGenderPref" class="form-control">
+                                <option value="any">Не важно</option>
+                                <option value="male">Только с парнями</option>
+                                <option value="female">Только с девушками</option>
+                            </select>
+                        </div>
+
                         <!-- Occupation -->
                         <div class="filter-group">
-                            <label for="formOccupation">Род деятельности *</label>
+                            <label for="formOccupation">Род деятельности</label>
                             <select id="formOccupation" class="form-control">
                                 <option value="student">Учусь</option>
                                 <option value="student_work">Учусь и работаю</option>
@@ -437,7 +456,7 @@
 
                         <!-- Phone/WhatsApp -->
                         <div class="filter-group">
-                            <label for="formWhatsapp">Номер телефона (WhatsApp) *</label>
+                            <label for="formWhatsapp">Номер телефона (WhatsApp)</label>
                             <div style="position:relative;">
                                 <span style="position:absolute; left:12px; top:10px; font-weight:700; color:var(--text-secondary);">+7</span>
                                 <input type="text" id="formWhatsapp" class="form-control" style="padding-left:36px;" placeholder="7771234567" required autocomplete="off">
@@ -448,7 +467,7 @@
 
                         <!-- Room Count -->
                         <div class="filter-group">
-                            <label for="formRoomCount" id="formRoomCountLabel">Комнат в квартире *</label>
+                            <label for="formRoomCount" id="formRoomCountLabel">Комнат в квартире</label>
                             <select id="formRoomCount" class="form-control">
                                 <option value="any">Не важно</option>
                                 <option value="1">1-комнатная</option>
@@ -465,7 +484,7 @@
 
                         <!-- Roommates count -->
                         <div class="filter-group">
-                            <label for="formRoommateCount" id="formRoommateLabel">Сколько сожителей *</label>
+                            <label for="formRoommateCount" id="formRoommateLabel">Сколько сожителей</label>
                             <select id="formRoommateCount" class="form-control">
                                 <option value="any">Не важно</option>
                                 <option value="1">1 человек</option>
@@ -483,7 +502,7 @@
 
                         <!-- Deposit readiness / presence -->
                         <div class="filter-group" id="formDepositGroup">
-                            <label for="formDeposit" id="formDepositLabel">Депозит *</label>
+                            <label for="formDeposit" id="formDepositLabel">Депозит</label>
                             <select id="formDeposit" class="form-control">
                                 <option value="false">Нет депозита / Не готов к депозиту</option>
                                 <option value="true">Есть депозит / Готов к депозиту</option>
@@ -492,7 +511,7 @@
 
                         <!-- Stay Term (Category A only) -->
                         <div class="filter-group" id="formStayTermGroup" style="display:none;">
-                            <label for="formStayTerm">Срок проживания *</label>
+                            <label for="formStayTerm">Срок проживания</label>
                             <select id="formStayTerm" class="form-control">
                                 <option value="any">Не важно / Всегда</option>
                                 <option value="1">1 месяц</option>
@@ -503,11 +522,27 @@
                             </select>
                         </div>
 
+                        <!-- Residents Count (Category A only) -->
+                        <div class="filter-group" id="formResidentsCountGroup" style="display:none;">
+                            <label for="formResidentsCount" id="formResidentsCountLabel">Сколько вас будет заселяться?</label>
+                            <select id="formResidentsCount" class="form-control">
+                                <option value="1">1 человек</option>
+                                <option value="2">2 человека</option>
+                                <option value="3">3 человека</option>
+                                <option value="4">4 человека</option>
+                                <option value="5">5 человек</option>
+                                <option value="6">6 человек</option>
+                                <option value="7">7 человек</option>
+                                <option value="8">8 человек</option>
+                                <option value="9">9 человек</option>
+                            </select>
+                        </div>
+
                         <!-- Have Room Specific Section -->
                         <div class="form-full form-grid" id="haveRoomDetails" style="display:none; grid-template-columns: 1fr 1fr; margin-bottom: 0; padding: 0; gap: 1.25rem;">
                             <!-- Address -->
                             <div class="filter-group">
-                                <label for="formAddress">Адрес квартиры *</label>
+                                <label for="formAddress">Адрес квартиры</label>
                                 <div style="position:relative; width: 100%;">
                                     <input type="text" id="formAddress" class="form-control" placeholder="пр. Аль-Фараби 77" autocomplete="off">
                                     <div class="autofill-suggestion" id="addressSuggestion" style="display:none;"></div>
@@ -516,13 +551,13 @@
 
                             <!-- 2GIS Map URL -->
                             <div class="filter-group">
-                                <label for="formGisLink">Ссылка на адрес в 2GIS *</label>
+                                <label for="formGisLink">Ссылка на адрес в 2GIS</label>
                                 <input type="url" id="formGisLink" class="form-control" placeholder="https://2gis.kz/almaty/search/...">
                             </div>
 
                             <!-- Total Residents (Category B only) -->
                             <div class="filter-group">
-                                <label for="formTotalResidents">Всего людей будет жить в квартире *</label>
+                                <label for="formTotalResidents">Всего людей будет жить в квартире</label>
                                 <select id="formTotalResidents" class="form-control">
                                     <option value="1">1 человек</option>
                                     <option value="2">2 человека</option>
@@ -535,7 +570,7 @@
 
                             <!-- Contract -->
                             <div class="filter-group">
-                                <label for="formContract">Наличие договора *</label>
+                                <label for="formContract">Наличие договора</label>
                                 <select id="formContract" class="form-control">
                                     <option value="false">Без договора</option>
                                     <option value="true">С договором</option>
@@ -555,7 +590,7 @@
 
                         <!-- Districts Multiple Tag Selection -->
                         <div class="filter-group form-full" id="formDistrictsWrapper">
-                            <label id="formDistrictsLabel">Районы/Микрорайоны жилья (Выберите один или несколько) *</label>
+                            <label id="formDistrictsLabel">Районы/Микрорайоны жилья (Выберите один или несколько)</label>
                             <div id="formDistrictsContainer" class="district-selector" style="max-height: 150px;">
                                 <!-- districts tags list loaded dynamically -->
                             </div>
@@ -563,8 +598,8 @@
 
                         <!-- Description -->
                         <div class="filter-group form-full">
-                            <label for="formDescription">Описание *</label>
-                            <textarea id="formDescription" class="form-control" rows="4" style="resize:none;" placeholder="Расскажите о себе, бытовых привычках или о квартире подробнее..." required></textarea>
+                            <label for="formDescription">Описание</label>
+                            <textarea id="formDescription" class="form-control" rows="4" style="resize:none;" placeholder="Расскажите о себе, бытовых привычках или о квартире подробнее..."></textarea>
                         </div>
                     </div>
                 </div>

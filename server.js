@@ -335,7 +335,7 @@ app.post('/api/listings', authenticateToken, createListingLimiter, async (req, r
             description: escapeHTML(description),
             photos: cleanPhotos,
             address: escapeHTML(address),
-            gisLink: category === 'have_room' ? gisLink : '',
+            gisLink: category === 'have_room' ? escapeHTML(gisLink) : '',
             hasDeposit: !!hasDeposit,
             hasContract: !!hasContract,
             createdAt: new Date().toISOString(),
@@ -470,7 +470,7 @@ app.put('/api/listings/:id', authenticateToken, async (req, res) => {
             description: escapeHTML(description),
             photos: cleanPhotos,
             address: escapeHTML(address),
-            gisLink: listing.category === 'have_room' ? gisLink : '',
+            gisLink: listing.category === 'have_room' ? escapeHTML(gisLink) : '',
             hasDeposit: !!hasDeposit,
             hasContract: !!hasContract
         };

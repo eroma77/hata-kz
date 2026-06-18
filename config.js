@@ -104,6 +104,9 @@ const DEFAULT_CONFIG = {
 
 // Load or initialize config from localStorage
 function loadConfig() {
+    if (typeof localStorage === 'undefined') {
+        return DEFAULT_CONFIG;
+    }
     const savedConfig = localStorage.getItem('hata_config');
     if (!savedConfig) {
         localStorage.setItem('hata_config', JSON.stringify(DEFAULT_CONFIG));
@@ -139,8 +142,17 @@ function loadConfig() {
 
 // Update configuration values (e.g. from Admin Panel)
 function saveConfig(newConfig) {
-    localStorage.setItem('hata_config', JSON.stringify(newConfig));
-    window.dispatchEvent(new Event('hata_config_changed'));
+    if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('hata_config', JSON.stringify(newConfig));
+    }
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('hata_config_changed'));
+    }
 }
 
 const HataConfig = loadConfig();
+
+// Export configuration for Node.js if applicable
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { DEFAULT_CONFIG, HataConfig, loadConfig, saveConfig };
+}

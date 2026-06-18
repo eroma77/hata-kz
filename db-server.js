@@ -5,32 +5,13 @@ const fs = require('fs');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
-// Mock localStorage and window globally for server environment compatibility with config.js
-if (typeof global.localStorage === 'undefined') {
-    global.localStorage = {
-        getItem: () => null,
-        setItem: () => {},
-        removeItem: () => {}
-    };
-}
-if (typeof global.window === 'undefined') {
-    global.window = {
-        dispatchEvent: () => {}
-    };
-    global.Event = class {};
-}
-
 // Load configurations
-const configPath = path.join(__dirname, 'config.js');
 let HataConfig = {};
 try {
-    const configContent = fs.readFileSync(configPath, 'utf8');
-    // Simple eval in Node context to extract DEFAULT_CONFIG
-    const sandbox = { HataConfig: {} };
-    const extractConfig = new Function('global', configContent + '\nreturn DEFAULT_CONFIG;');
-    HataConfig = extractConfig(global);
+    const config = require('./config');
+    HataConfig = config.DEFAULT_CONFIG;
 } catch (e) {
-    console.warn("Failed to parse config.js, using internal defaults:", e.message);
+    console.warn("Failed to import config.js, using internal defaults:", e.message);
     HataConfig = {
         pricing: { postingFee: 0, promo3Days: 190, promoWeek: 490, promoMonth: 590 },
         supabaseUrl: "https://lyzbgzxmevttepsdpsor.supabase.co"

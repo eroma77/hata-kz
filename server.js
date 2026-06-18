@@ -19,11 +19,40 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            scriptSrc: [
+                "'self'", 
+                "'unsafe-inline'", 
+                "https://unpkg.com", 
+                "https://cdn.jsdelivr.net", 
+                "https://accounts.google.com", 
+                "https://fonts.googleapis.com"
+            ],
+            scriptSrcAttr: ["'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
             fontSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
-            imgSrc: ["'self'", "data:", "blob:", "https://*.supabase.co", "https://images.unsplash.com", "https://lh3.googleusercontent.com"],
-            connectSrc: ["'self'", "https://*.supabase.co", "https://lyzbgzxmevttepsdpsor.supabase.co"],
+            imgSrc: [
+                "'self'", 
+                "data:", 
+                "blob:", 
+                "https://*.supabase.co", 
+                "https://images.unsplash.com", 
+                "https://lh3.googleusercontent.com",
+                "https://*.googleusercontent.com",
+                "https://*.gravatar.com",
+                "https://www.gravatar.com"
+            ],
+            connectSrc: [
+                "'self'", 
+                "https://*.supabase.co", 
+                "https://lyzbgzxmevttepsdpsor.supabase.co",
+                "https://accounts.google.com",
+                "https://*.googleapis.com"
+            ],
+            frameSrc: [
+                "'self'",
+                "https://accounts.google.com",
+                "https://*.supabase.co"
+            ]
         }
     },
     crossOriginEmbedderPolicy: false // Needed for images from external sources

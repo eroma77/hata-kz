@@ -3,10 +3,65 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const cron = require('node-cron');
+const helmet = require('helmet');
+const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const dbServer = require('./db-server');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+// --- SECURITY MIDDLEWARE ---
+
+// Helmet: sets secure HTTP headers (CSP, HSTS, X-Frame-Options, etc.)
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
+            fontSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "blob:", "https://*.supabase.co", "https://images.unsplash.com", "https://lh3.googleusercontent.com"],
+            connectSrc: ["'self'", "https://*.supabase.co", "https://lyzbgzxmevttepsdpsor.supabase.co"],
+        }
+    },
+    crossOriginEmbedderPolicy: false // Needed for images from external sources
+}));
+
+// CORS: only allow requests from the production domain
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',')
+    : ['http://localhost:3000', 'http://localhost:5000'];
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl)
+        if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+        return callback(new Error('CORS policy violation: origin not allowed'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+}));
+
+// Rate Limiting: protect API endpoints from abuse and DoS
+const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Слишком много запросов. Пожалуйста, подождите 15 минут.' }
+});
+const paymentLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 10,
+    message: { error: 'Слишком много платёжных запросов. Подождите минуту.' }
+});
+const createListingLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 20,
+    message: { error: 'Слишком много объявлений. Подождите час.' }
+});
+app.use('/api/', generalLimiter);
 
 // Middleware for parsing requests
 app.use(express.json({ limit: '10mb' }));
@@ -47,8 +102,8 @@ async function authenticateToken(req, res, next) {
 
     let user = null;
 
-    // Simulated token for automated E2E testing
-    if (token === 'simulated-token-123') {
+    // Simulated token ONLY for local development/E2E testing (never in production)
+    if (!IS_PRODUCTION && token === 'simulated-token-123') {
         user = {
             id: 'simulated-user-123',
             email: 'student@hata.kz',
@@ -117,7 +172,7 @@ app.get('/api/listings/user', authenticateToken, async (req, res) => {
 });
 
 // 2. POST Add Listing
-app.post('/api/listings', authenticateToken, async (req, res) => {
+app.post('/api/listings', authenticateToken, createListingLimiter, async (req, res) => {
     try {
         // Enforce 7 active listings limit
         const activeCount = await dbServer.getActiveCountForUser(req.user.id);
@@ -199,7 +254,20 @@ app.post('/api/listings', authenticateToken, async (req, res) => {
         }
 
         // Photos validation based on category (optional for seekers, required for landlords)
-        const cleanPhotos = Array.isArray(photos) ? photos.map(url => url.trim()).filter(url => url !== '') : [];
+        // [SECURITY] Whitelist only HTTPS URLs from trusted domains (Supabase storage or Base64 data URIs)
+        function isValidPhotoUrl(url) {
+            if (!url || typeof url !== 'string') return false;
+            if (url.startsWith('data:image/')) return true; // Base64 fallback allowed
+            try {
+                const parsed = new URL(url);
+                return parsed.protocol === 'https:' &&
+                    (parsed.hostname.endsWith('.supabase.co') ||
+                     parsed.hostname.endsWith('.unsplash.com')); // Allow unsplash for mock data
+            } catch { return false; }
+        }
+        const cleanPhotos = Array.isArray(photos)
+            ? photos.map(url => url.trim()).filter(url => url !== '' && isValidPhotoUrl(url))
+            : [];
         if (category === 'have_room') {
             if (cleanPhotos.length < 3 || cleanPhotos.length > 6) {
                 return res.status(400).json({ error: 'Необходимо добавить от 3 до 6 фотографий квартиры' });
@@ -327,7 +395,20 @@ app.put('/api/listings/:id', authenticateToken, async (req, res) => {
         }
 
         // Photos validation based on category (optional for seekers, required for landlords)
-        const cleanPhotos = Array.isArray(photos) ? photos.map(url => url.trim()).filter(url => url !== '') : [];
+        // [SECURITY] Whitelist only HTTPS URLs from trusted domains
+        function isValidPhotoUrlEdit(url) {
+            if (!url || typeof url !== 'string') return false;
+            if (url.startsWith('data:image/')) return true;
+            try {
+                const parsed = new URL(url);
+                return parsed.protocol === 'https:' &&
+                    (parsed.hostname.endsWith('.supabase.co') ||
+                     parsed.hostname.endsWith('.unsplash.com'));
+            } catch { return false; }
+        }
+        const cleanPhotos = Array.isArray(photos)
+            ? photos.map(url => url.trim()).filter(url => url !== '' && isValidPhotoUrlEdit(url))
+            : [];
         if (listing.category === 'have_room') {
             if (cleanPhotos.length < 3 || cleanPhotos.length > 6) {
                 return res.status(400).json({ error: 'Необходимо добавить от 3 до 6 фотографий квартиры' });
@@ -434,8 +515,20 @@ app.get('/api/payments/pay', async (req, res) => {
         return res.status(400).send("<h3>Неверные параметры платежа (отсутствуют listingId или amount)</h3>");
     }
 
+    // [SECURITY] Validate amount is a known price (whitelist)
+    const validAmounts = [190, 490, 590];
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || !validAmounts.includes(numericAmount)) {
+        return res.status(400).send("<h3>Неверная сумма платежа</h3>");
+    }
+
     const listing = await dbServer.getListingById(listingId);
     if (!listing) return res.status(404).send("<h3>Объявление не найдено</h3>");
+
+    // [SECURITY] XSS: Escape all user-controlled values before injecting into HTML
+    const safeAmount = escapeHTML(String(numericAmount));
+    const safeListingId = escapeHTML(String(listingId));
+    const safeOwnerName = escapeHTML(String(listing.ownerName || ''));
 
     const htmlContent = `
     <!DOCTYPE html>
@@ -585,16 +678,16 @@ app.get('/api/payments/pay', async (req, res) => {
                 <div class="kaspi-logo">K</div>
                 Kaspi Pay
             </div>
-            <div class="amount">${amount} <span>₸</span></div>
+            <div class="amount">${safeAmount} <span>₸</span></div>
             
             <div class="info-box">
                 <div class="info-row">
                     <div class="info-label">Объявление ID:</div>
-                    <div>${listingId}</div>
+                    <div>${safeListingId}</div>
                 </div>
                 <div class="info-row">
                     <div class="info-label">Владелец:</div>
-                    <div>${listing.ownerName}</div>
+                    <div>${safeOwnerName}</div>
                 </div>
                 <div class="info-row">
                     <div class="info-label">Услуга:</div>
@@ -620,20 +713,17 @@ app.get('/api/payments/pay', async (req, res) => {
 
                 const payload = {
                     txn_id: 'kaspi-txn-' + Math.floor(Math.random() * 100000000),
-                    listing_id: '${listingId}',
-                    amount: ${amount},
+                    listing_id: '${safeListingId}',
+                    amount: ${safeAmount},
                     status: 'completed',
                     timestamp: new Date().toISOString()
                 };
 
-                // Generate signature using mock/configured secret key on frontend for simulation
-                const secret = 'your-kaspi-secret';
-                
-                // Simplified simulated HMAC-SHA256 signature calculated to match expected server key
-                // Since this is a test simulation, the server will expect this signed block
-                // For the stress audit, this simulates full browser-to-server secure webhook
-                // Here we calculate a secure SHA-256 hex string based on client payload + simple signature
-                const signSource = JSON.stringify(payload) + secret;
+                // [SECURITY] Signature is generated server-side via webhook.
+                // Client does NOT know the secret — it sends the payload without a signature.
+                // The payment page is a SIMULATION only. Real Kaspi payments use server-to-server webhooks.
+                // Client sends the payload; server validates via its own HMAC calculation.
+                const signSource = JSON.stringify(payload);
                 
                 // Simple SHA256 simulation helper (standard browser crypto api)
                 async function sha256(message) {
@@ -681,7 +771,7 @@ app.get('/api/payments/pay', async (req, res) => {
 });
 
 // 8. POST Kaspi Webhook
-app.post('/api/payments/kaspi-webhook', async (req, res) => {
+app.post('/api/payments/kaspi-webhook', paymentLimiter, async (req, res) => {
     try {
         const signature = req.headers['x-kaspi-signature'];
         const payload = req.body;
@@ -692,18 +782,29 @@ app.post('/api/payments/kaspi-webhook', async (req, res) => {
 
         const { txn_id, listing_id, amount, status } = payload;
 
-        // Verify Signature
-        const secret = process.env.KASPI_WEBHOOK_SECRET || 'your-kaspi-secret';
-        
-        // Calculate expected signature: SHA256 of payload string + secret
-        const signSource = JSON.stringify(payload) + secret;
+        // [SECURITY] Verify HMAC-SHA256 signature (NOT plain SHA256!)
+        // HMAC is resistant to length-extension attacks unlike plain SHA256
+        const secret = process.env.KASPI_WEBHOOK_SECRET;
+        if (!secret) {
+            console.error('[Payment Webhook] KASPI_WEBHOOK_SECRET is not set! Rejecting all webhook requests.');
+            return res.status(503).json({ error: 'Платёжный сервис временно недоступен' });
+        }
+
+        // Calculate expected HMAC-SHA256 signature
+        const signSource = JSON.stringify(payload);
         const expectedSignature = crypto
-            .createHash('sha256')
+            .createHmac('sha256', secret)
             .update(signSource)
             .digest('hex');
 
-        if (signature !== expectedSignature) {
-            console.warn("[Payment Webhook] Signature mismatch. Expected:", expectedSignature, "Got:", signature);
+        // [SECURITY] Use timing-safe comparison to prevent timing attacks
+        const sigBuffer = Buffer.from(signature || '', 'hex');
+        const expBuffer = Buffer.from(expectedSignature, 'hex');
+        const signaturesMatch = sigBuffer.length === expBuffer.length &&
+            crypto.timingSafeEqual(sigBuffer, expBuffer);
+
+        if (!signaturesMatch) {
+            console.warn('[Payment Webhook] Signature mismatch for txn_id:', txn_id);
             return res.status(401).json({ error: 'Недействительная цифровая подпись Kaspi' });
         }
 

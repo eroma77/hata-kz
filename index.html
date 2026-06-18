@@ -124,7 +124,7 @@
 
                     <!-- Gender Filter -->
                     <div class="filter-group">
-                        <label for="filterGender">Пол сожителя</label>
+                        <label for="filterGender" id="filterGenderLabel">Пол сожителя</label>
                         <select id="filterGender" class="form-control">
                             <option value="any">Не важно</option>
                             <option value="male">Парни</option>
@@ -134,13 +134,63 @@
 
                     <!-- Room Count Filter -->
                     <div class="filter-group">
-                        <label for="filterRooms">Комнатность</label>
+                        <label for="filterRooms" id="filterRoomsLabel">Комнатность</label>
                         <select id="filterRooms" class="form-control">
                             <option value="any">Не важно</option>
                             <option value="1">1-комнатная</option>
                             <option value="2">2-комнатная</option>
                             <option value="3">3-комнатная</option>
                             <option value="4plus">4+ комнатные</option>
+                        </select>
+                    </div>
+
+                    <!-- Deposit Filter -->
+                    <div class="filter-group" id="filterDepositGroup">
+                        <label for="filterDeposit" id="filterDepositLabel">Депозит</label>
+                        <select id="filterDeposit" class="form-control">
+                            <option value="any">Не важно</option>
+                            <option value="true">С депозитом / Готов внести</option>
+                            <option value="false">Без депозита / Не готов</option>
+                        </select>
+                    </div>
+
+                    <!-- Stay Term (Category A only) -->
+                    <div class="filter-group" id="filterStayTermGroup" style="display:none;">
+                        <label for="filterStayTerm">Срок проживания</label>
+                        <select id="filterStayTerm" class="form-control">
+                            <option value="any">Не важно</option>
+                            <option value="1">1 месяц</option>
+                            <option value="2">2 месяца</option>
+                            <option value="3">3-6 месяцев</option>
+                            <option value="6">6-12 месяцев</option>
+                            <option value="12">12+ месяцев</option>
+                            <option value="always">Всегда</option>
+                        </select>
+                    </div>
+
+                    <!-- Total Residents (Category B only) -->
+                    <div class="filter-group" id="filterTotalResidentsGroup">
+                        <label for="filterTotalResidents">Всего людей в квартире</label>
+                        <select id="filterTotalResidents" class="form-control">
+                            <option value="any">Не важно</option>
+                            <option value="1">1 человек</option>
+                            <option value="2">2 человека</option>
+                            <option value="3">3 человека</option>
+                            <option value="4">4 человека</option>
+                            <option value="5">5 человек</option>
+                            <option value="6plus">6+ человек</option>
+                        </select>
+                    </div>
+
+                    <!-- Roommates Sought (Category B only) -->
+                    <div class="filter-group" id="filterRoommateCountGroup">
+                        <label for="filterRoommateCount">Ищут сожителей</label>
+                        <select id="filterRoommateCount" class="form-control">
+                            <option value="any">Не важно</option>
+                            <option value="1">1 человек</option>
+                            <option value="2">2 человека</option>
+                            <option value="3">3 человека</option>
+                            <option value="4">4+ человека</option>
                         </select>
                     </div>
                 </div>
@@ -336,6 +386,14 @@
                 
                 <div class="modal-body">
                     <div class="form-grid">
+                        <!-- Category Switcher Dropdown -->
+                        <div class="filter-group form-full">
+                            <label for="formCategorySelect">Категория объявления *</label>
+                            <select id="formCategorySelect" class="form-control" onchange="toggleFormCategory(this.value)">
+                                <option value="need_room">Я ищу квартиру (хочу заселиться)</option>
+                                <option value="have_room">Я сдаю квартиру / ищу сожителей</option>
+                            </select>
+                        </div>
                         <!-- Budget -->
                         <div class="filter-group">
                             <label for="formBudget" id="formBudgetLabel">Бюджет (₸/мес) *</label>
@@ -362,6 +420,7 @@
                             <select id="formGender" class="form-control">
                                 <option value="male">Парень</option>
                                 <option value="female">Девушка</option>
+                                <option value="any" id="formGenderAnyOption" style="display:none;">Не важно</option>
                             </select>
                         </div>
 
@@ -381,14 +440,15 @@
                             <label for="formWhatsapp">Номер телефона (WhatsApp) *</label>
                             <div style="position:relative;">
                                 <span style="position:absolute; left:12px; top:10px; font-weight:700; color:var(--text-secondary);">+7</span>
-                                <input type="text" id="formWhatsapp" class="form-control" style="padding-left:36px;" placeholder="7771234567" required>
+                                <input type="text" id="formWhatsapp" class="form-control" style="padding-left:36px;" placeholder="7771234567" required autocomplete="off">
+                                <div class="autofill-suggestion" id="whatsappSuggestion" style="display:none;"></div>
                             </div>
                             <span style="font-size:0.75rem; color:var(--text-muted);">Без скобок и дефисов. Пример: 7771234567.</span>
                         </div>
 
                         <!-- Room Count -->
                         <div class="filter-group">
-                            <label for="formRoomCount">Комнат в квартире *</label>
+                            <label for="formRoomCount" id="formRoomCountLabel">Комнат в квартире *</label>
                             <select id="formRoomCount" class="form-control">
                                 <option value="any">Не важно</option>
                                 <option value="1">1-комнатная</option>
@@ -396,6 +456,10 @@
                                 <option value="3">3-комнатная</option>
                                 <option value="4">4-комнатная</option>
                                 <option value="5">5-комнатная</option>
+                                <option value="6">6-комнатная</option>
+                                <option value="7">7-комнатная</option>
+                                <option value="8">8-комнатная</option>
+                                <option value="9">9+ комнатная</option>
                             </select>
                         </div>
 
@@ -408,6 +472,34 @@
                                 <option value="2">2 человека</option>
                                 <option value="3">3 человека</option>
                                 <option value="4">4 человека</option>
+                                <option value="5">5 человек</option>
+                                <option value="6">6 человек</option>
+                                <option value="7">7 человек</option>
+                                <option value="8">8 человек</option>
+                                <option value="9">9 человек</option>
+                                <option value="10">10 человек</option>
+                            </select>
+                        </div>
+
+                        <!-- Deposit readiness / presence -->
+                        <div class="filter-group" id="formDepositGroup">
+                            <label for="formDeposit" id="formDepositLabel">Депозит *</label>
+                            <select id="formDeposit" class="form-control">
+                                <option value="false">Нет депозита / Не готов к депозиту</option>
+                                <option value="true">Есть депозит / Готов к депозиту</option>
+                            </select>
+                        </div>
+
+                        <!-- Stay Term (Category A only) -->
+                        <div class="filter-group" id="formStayTermGroup" style="display:none;">
+                            <label for="formStayTerm">Срок проживания *</label>
+                            <select id="formStayTerm" class="form-control">
+                                <option value="any">Не важно / Всегда</option>
+                                <option value="1">1 месяц</option>
+                                <option value="2">2 месяца</option>
+                                <option value="3">3-6 месяцев</option>
+                                <option value="6">6-12 месяцев</option>
+                                <option value="12">12+ месяцев</option>
                             </select>
                         </div>
 
@@ -416,7 +508,10 @@
                             <!-- Address -->
                             <div class="filter-group">
                                 <label for="formAddress">Адрес квартиры *</label>
-                                <input type="text" id="formAddress" class="form-control" placeholder="пр. Аль-Фараби 77">
+                                <div style="position:relative; width: 100%;">
+                                    <input type="text" id="formAddress" class="form-control" placeholder="пр. Аль-Фараби 77" autocomplete="off">
+                                    <div class="autofill-suggestion" id="addressSuggestion" style="display:none;"></div>
+                                </div>
                             </div>
 
                             <!-- 2GIS Map URL -->
@@ -425,12 +520,16 @@
                                 <input type="url" id="formGisLink" class="form-control" placeholder="https://2gis.kz/almaty/search/...">
                             </div>
 
-                            <!-- Deposit -->
+                            <!-- Total Residents (Category B only) -->
                             <div class="filter-group">
-                                <label for="formDeposit">Депозит *</label>
-                                <select id="formDeposit" class="form-control">
-                                    <option value="false">Нет депозита</option>
-                                    <option value="true">Есть депозит</option>
+                                <label for="formTotalResidents">Всего людей будет жить в квартире *</label>
+                                <select id="formTotalResidents" class="form-control">
+                                    <option value="1">1 человек</option>
+                                    <option value="2">2 человека</option>
+                                    <option value="3">3 человека</option>
+                                    <option value="4">4 человека</option>
+                                    <option value="5">5 человек</option>
+                                    <option value="6plus">6+ человек</option>
                                 </select>
                             </div>
 

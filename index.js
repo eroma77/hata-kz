@@ -262,11 +262,40 @@ function initCategoryTabs() {
     }
 }
 
+function updateFilterLabels(cat) {
+    const filterGenderLabel = document.getElementById('filterGenderLabel');
+    const filterRoomsLabel = document.getElementById('filterRoomsLabel');
+    const filterDepositLabel = document.getElementById('filterDepositLabel');
+    
+    const stayTermGroup = document.getElementById('filterStayTermGroup');
+    const totalResidentsGroup = document.getElementById('filterTotalResidentsGroup');
+    const roommateCountGroup = document.getElementById('filterRoommateCountGroup');
+    
+    if (cat === 'have_room') {
+        if (filterGenderLabel) filterGenderLabel.textContent = 'Пол сожителя';
+        if (filterRoomsLabel) filterRoomsLabel.textContent = 'Комнат в квартире';
+        if (filterDepositLabel) filterDepositLabel.textContent = 'Депозит';
+        
+        if (stayTermGroup) stayTermGroup.style.display = 'none';
+        if (totalResidentsGroup) totalResidentsGroup.style.display = 'flex';
+        if (roommateCountGroup) roommateCountGroup.style.display = 'flex';
+    } else {
+        if (filterGenderLabel) filterGenderLabel.textContent = 'Пол соискателя';
+        if (filterRoomsLabel) filterRoomsLabel.textContent = 'Нужно комнат';
+        if (filterDepositLabel) filterDepositLabel.textContent = 'Готовность к депозиту';
+        
+        if (stayTermGroup) stayTermGroup.style.display = 'flex';
+        if (totalResidentsGroup) totalResidentsGroup.style.display = 'none';
+        if (roommateCountGroup) roommateCountGroup.style.display = 'none';
+    }
+}
+
 function switchCategoryTab(cat) {
     currentCategory = cat;
     document.getElementById('tabNeedRoom').classList.toggle('active', cat === 'have_room');
     document.getElementById('tabHaveRoom').classList.toggle('active', cat === 'need_room');
     
+    updateFilterLabels(cat);
     selectedFilterDistricts.clear();
     updateDistrictsFilter();
     renderListings();
@@ -332,6 +361,18 @@ function initFilters() {
     
     if (filterGender) filterGender.addEventListener('change', () => { if (!filterHasErrors) renderListings(); });
     if (filterRooms) filterRooms.addEventListener('change', () => { if (!filterHasErrors) renderListings(); });
+    
+    const filterDeposit = document.getElementById('filterDeposit');
+    if (filterDeposit) filterDeposit.addEventListener('change', () => { if (!filterHasErrors) renderListings(); });
+    
+    const filterStayTerm = document.getElementById('filterStayTerm');
+    if (filterStayTerm) filterStayTerm.addEventListener('change', () => { if (!filterHasErrors) renderListings(); });
+    
+    const filterTotalResidents = document.getElementById('filterTotalResidents');
+    if (filterTotalResidents) filterTotalResidents.addEventListener('change', () => { if (!filterHasErrors) renderListings(); });
+    
+    const filterRoommateCount = document.getElementById('filterRoommateCount');
+    if (filterRoommateCount) filterRoommateCount.addEventListener('change', () => { if (!filterHasErrors) renderListings(); });
 
     // Collapsible filter panel toggle
     const filterToggleBtn = document.getElementById('filterToggleBtn');
@@ -450,6 +491,11 @@ function renderListings() {
     const genderFilter = document.getElementById('filterGender').value;
     const roomFilter = document.getElementById('filterRooms').value;
     
+    const depositFilter = document.getElementById('filterDeposit').value;
+    const stayTermFilter = document.getElementById('filterStayTerm').value;
+    const totalResidentsFilter = document.getElementById('filterTotalResidents').value;
+    const roommateCountFilter = document.getElementById('filterRoommateCount').value;
+    
     // Global search input
     const searchInput = document.getElementById('globalSearchInput');
     const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
@@ -472,6 +518,25 @@ function renderListings() {
                 if (item.roomCount < 4) return false;
             } else {
                 if (item.roomCount !== parseInt(roomFilter)) return false;
+            }
+        }
+        
+        // Asymmetric Filters
+        if (depositFilter !== 'any') {
+            const match = item.hasDeposit === (depositFilter === 'true');
+            if (!match) return false;
+        }
+        
+        if (currentCategory === 'need_room') {
+            if (stayTermFilter !== 'any' && item.stayTerm !== stayTermFilter) return false;
+        } else {
+            if (totalResidentsFilter !== 'any' && item.totalResidents !== totalResidentsFilter) return false;
+            if (roommateCountFilter !== 'any') {
+                if (roommateCountFilter === '4plus') {
+                    if (item.roommateCount < 4) return false;
+                } else {
+                    if (item.roommateCount !== parseInt(roommateCountFilter)) return false;
+                }
             }
         }
         
@@ -592,8 +657,11 @@ function renderListings() {
                     <div class="card-tags">
                         <span class="card-tag accent">${genderLabel}, ${item.age} лет</span>
                         <span class="card-tag">${tagOccupation}</span>
-                        <span class="card-tag">${item.roomCount} комн.</span>
-                        ${item.hasDeposit ? '<span class="card-tag accent">Депозит</span>' : ''}
+                        <span class="card-tag">${item.roomCount === 'any' ? 'Любая комн.' : item.roomCount + ' комн.'}</span>
+                        ${item.hasDeposit ? `<span class="card-tag accent">${item.category === 'need_room' ? 'Готов к депозиту' : 'Депозит'}</span>` : ''}
+                        ${item.category === 'have_room' && item.totalResidents ? `<span class="card-tag">Жильцов: ${item.totalResidents}</span>` : ''}
+                        ${item.category === 'have_room' && item.roommateCount ? `<span class="card-tag">Ищут: ${item.roommateCount}</span>` : ''}
+                        ${item.category === 'need_room' && item.stayTerm ? `<span class="card-tag">Срок: ${getStayTermLabel(item.stayTerm)}</span>` : ''}
                         ${item.hasContract ? '<span class="card-tag">Договор</span>' : ''}
                         ${distStr}
                     </div>
@@ -765,30 +833,66 @@ function initForm() {
         formWhatsapp.addEventListener('input', (e) => {
             e.target.value = e.target.value.replace(/\D/g, '').substring(0, 10);
         });
-        
-        formWhatsapp.addEventListener('focus', () => {
-            const user = db.getCurrentUser();
-            if (user) {
-                const suggestions = db.getAutoFillSuggestions(user.id);
-                if (suggestions.whatsapp && !formWhatsapp.value) {
-                    formWhatsapp.value = suggestions.whatsapp;
-                }
-            }
-        });
     }
 
-    const formAddress = document.getElementById('formAddress');
-    if (formAddress) {
-        formAddress.addEventListener('focus', () => {
-            const user = db.getCurrentUser();
-            if (user) {
-                const suggestions = db.getAutoFillSuggestions(user.id);
-                if (suggestions.address && !formAddress.value) {
-                    formAddress.value = suggestions.address;
-                }
+    setupAutofillPopup(formWhatsapp, document.getElementById('whatsappSuggestion'), 'whatsapp');
+    setupAutofillPopup(document.getElementById('formAddress'), document.getElementById('addressSuggestion'), 'address');
+}
+
+function getStayTermLabel(term) {
+    if (term === '1') return '1 мес';
+    if (term === '2') return '2 мес';
+    if (term === '3') return '3-6 мес';
+    if (term === '6') return '6-12 мес';
+    if (term === '12') return '12+ мес';
+    if (term === 'always') return 'Всегда';
+    return 'Не важно';
+}
+
+function setupAutofillPopup(inputEl, suggestionContainerEl, key, formatFn = null) {
+    if (!inputEl || !suggestionContainerEl) return;
+    
+    const showSuggestion = () => {
+        const user = db.getCurrentUser();
+        if (!user) return;
+        const suggestions = db.getAutoFillSuggestions(user.id);
+        const val = suggestions[key];
+        
+        if (val && !inputEl.value) {
+            suggestionContainerEl.innerHTML = `<div class="autofill-item">Использовать прошлый: <strong>${formatFn ? formatFn(val) : val}</strong></div>`;
+            suggestionContainerEl.style.display = 'block';
+            
+            const item = suggestionContainerEl.querySelector('.autofill-item');
+            if (item) {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    inputEl.value = val;
+                    if (key === 'whatsapp') {
+                        inputEl.value = formatNumberWithSpaces(val);
+                    }
+                    suggestionContainerEl.style.display = 'none';
+                    if (inputEl.id === 'formBudget') {
+                        validateFormBudgetBounds();
+                    }
+                });
             }
-        });
-    }
+        } else {
+            suggestionContainerEl.style.display = 'none';
+        }
+    };
+    
+    inputEl.addEventListener('focus', showSuggestion);
+    
+    inputEl.addEventListener('input', () => {
+        suggestionContainerEl.style.display = 'none';
+    });
+    
+    document.addEventListener('click', (e) => {
+        if (e.target !== inputEl && !suggestionContainerEl.contains(e.target)) {
+            suggestionContainerEl.style.display = 'none';
+        }
+    });
 }
 
 function validateFormBudgetBounds() {
@@ -804,6 +908,43 @@ function validateFormBudgetBounds() {
         if (submitBtn) submitBtn.disabled = false;
     }
 }
+
+window.toggleFormCategory = function(category) {
+    document.getElementById('formCategory').value = category;
+    
+    const detailsBlock = document.getElementById('haveRoomDetails');
+    const stayTermBlock = document.getElementById('formStayTermGroup');
+    const genderAnyOpt = document.getElementById('formGenderAnyOption');
+    const genderSelect = document.getElementById('formGender');
+    
+    if (category === 'have_room') {
+        if (detailsBlock) detailsBlock.style.display = 'grid';
+        if (stayTermBlock) stayTermBlock.style.display = 'none';
+        if (genderAnyOpt) genderAnyOpt.style.display = 'block';
+        
+        document.getElementById('formBudgetLabel').textContent = 'Стоимость аренды (₸/мес) *';
+        document.getElementById('formGenderLabel').textContent = 'Кого вы ищете (Пол сожителя) *';
+        document.getElementById('formRoommateLabel').textContent = 'Сколько человек ищете *';
+        document.getElementById('formRoomCountLabel').textContent = 'Комнат в квартире *';
+        document.getElementById('formDepositLabel').textContent = 'Депозит *';
+        initFormPhotoPreviews();
+    } else {
+        if (detailsBlock) detailsBlock.style.display = 'none';
+        if (stayTermBlock) stayTermBlock.style.display = 'block';
+        if (genderAnyOpt) {
+            genderAnyOpt.style.display = 'none';
+            if (genderSelect.value === 'any') {
+                genderSelect.value = 'male';
+            }
+        }
+        
+        document.getElementById('formBudgetLabel').textContent = 'Ваш бюджет (₸/мес) *';
+        document.getElementById('formGenderLabel').textContent = 'Ваш пол *';
+        document.getElementById('formRoommateLabel').textContent = 'С кем хотите жить *';
+        document.getElementById('formRoomCountLabel').textContent = 'Сколько комнат нужно *';
+        document.getElementById('formDepositLabel').textContent = 'Готовность внести депозит *';
+    }
+};
 
 function openListingForm(id = null) {
     const user = db.getCurrentUser();
@@ -823,26 +964,11 @@ function openListingForm(id = null) {
     const config = loadConfig();
     submitBtn.textContent = `Опубликовать (${formatNumberWithSpaces(config.pricing.postingFee)} ₸)`;
     
-    // Invert mapping for posting
-    // Tab "Ищу квартиру" (displays have_room) -> User wants to POST "have_room" if they rent/offer flat.
-    // Wait, let's keep Category selection clean:
-    // User wants to post what is selected in currentCategory tab
-    const formCat = document.getElementById('formCategory');
-    formCat.value = currentCategory;
-    
-    const detailsBlock = document.getElementById('haveRoomDetails');
-    if (currentCategory === 'have_room') {
-        detailsBlock.style.display = 'grid';
-        document.getElementById('formBudgetLabel').textContent = 'Стоимость аренды (₸/мес) *';
-        document.getElementById('formGenderLabel').textContent = 'Кого вы ищете (Пол сожителя) *';
-        document.getElementById('formRoommateLabel').textContent = 'Сколько человек ищете *';
-        initFormPhotoPreviews();
-    } else {
-        detailsBlock.style.display = 'none';
-        document.getElementById('formBudgetLabel').textContent = 'Ваш бюджет (₸/мес) *';
-        document.getElementById('formGenderLabel').textContent = 'Ваш пол *';
-        document.getElementById('formRoommateLabel').textContent = 'С кем хотите жить *';
+    const catSelect = document.getElementById('formCategorySelect');
+    if (catSelect) {
+        catSelect.value = currentCategory;
     }
+    toggleFormCategory(currentCategory);
 
     if (id) {
         title.textContent = 'Редактировать объявление';
@@ -852,26 +978,21 @@ function openListingForm(id = null) {
         const item = all.find(x => x.id === id);
         if (item) {
             document.getElementById('formListingId').value = item.id;
-            document.getElementById('formCategory').value = item.category;
+            if (catSelect) {
+                catSelect.value = item.category;
+            }
+            toggleFormCategory(item.category);
             
             if (item.category === 'have_room') {
-                detailsBlock.style.display = 'grid';
-                document.getElementById('formBudgetLabel').textContent = 'Стоимость аренды (₸/мес) *';
-                document.getElementById('formGenderLabel').textContent = 'Кого вы ищете (Пол сожителя) *';
-                document.getElementById('formRoommateLabel').textContent = 'Сколько человек ищете *';
-                
                 document.getElementById('formAddress').value = item.address || '';
                 document.getElementById('formGisLink').value = item.gisLink || '';
-                document.getElementById('formDeposit').value = item.hasDeposit ? 'true' : 'false';
+                document.getElementById('formTotalResidents').value = item.totalResidents || '1';
                 document.getElementById('formContract').value = item.hasContract ? 'true' : 'false';
                 
                 formImagesList = [...(item.photos || [])];
                 initFormPhotoPreviews();
             } else {
-                detailsBlock.style.display = 'none';
-                document.getElementById('formBudgetLabel').textContent = 'Ваш бюджет (₸/мес) *';
-                document.getElementById('formGenderLabel').textContent = 'Ваш пол *';
-                document.getElementById('formRoommateLabel').textContent = 'С кем хотите жить *';
+                document.getElementById('formStayTerm').value = item.stayTerm || 'any';
             }
             
             document.getElementById('formBudget').value = formatNumberWithSpaces(item.budget);
@@ -882,6 +1003,7 @@ function openListingForm(id = null) {
             document.getElementById('formWhatsapp').value = item.whatsapp;
             document.getElementById('formRoomCount').value = item.roomCount;
             document.getElementById('formRoommateCount').value = item.roommateCount;
+            document.getElementById('formDeposit').value = item.hasDeposit ? 'true' : 'false';
             document.getElementById('formDescription').value = item.description;
             
             selectedFormDistricts = new Set(item.districts);
@@ -1008,6 +1130,7 @@ window.handleListingSubmit = function(event) {
     const whatsapp = document.getElementById('formWhatsapp').value;
     const roomCount = document.getElementById('formRoomCount').value === 'any' ? 'any' : parseInt(document.getElementById('formRoomCount').value);
     const roommateCount = document.getElementById('formRoommateCount').value === 'any' ? 'any' : parseInt(document.getElementById('formRoommateCount').value);
+    const hasDeposit = document.getElementById('formDeposit').value === 'true';
     const description = document.getElementById('formDescription').value;
     
     const cityInfo = HataConfig.cities[city];
@@ -1032,6 +1155,7 @@ window.handleListingSubmit = function(event) {
         occupation,
         roomCount,
         roommateCount,
+        hasDeposit,
         description
     };
     
@@ -1043,7 +1167,7 @@ window.handleListingSubmit = function(event) {
         
         const address = document.getElementById('formAddress').value;
         const gisLink = document.getElementById('formGisLink').value;
-        const hasDeposit = document.getElementById('formDeposit').value === 'true';
+        const totalResidents = document.getElementById('formTotalResidents').value;
         const hasContract = document.getElementById('formContract').value === 'true';
         
         if (!address || !gisLink) {
@@ -1054,14 +1178,17 @@ window.handleListingSubmit = function(event) {
         payload.address = address;
         payload.gisLink = gisLink;
         payload.photos = formImagesList;
-        payload.hasDeposit = hasDeposit;
+        payload.totalResidents = totalResidents;
         payload.hasContract = hasContract;
+        payload.stayTerm = "any";
     } else {
+        const stayTerm = document.getElementById('formStayTerm').value;
         payload.address = "";
         payload.gisLink = "";
         payload.photos = [];
-        payload.hasDeposit = false;
+        payload.totalResidents = "1";
         payload.hasContract = false;
+        payload.stayTerm = stayTerm;
     }
     
     try {
@@ -1485,8 +1612,11 @@ function renderFavorites() {
                     <div class="card-tags">
                         <span class="card-tag accent">${genderLabel}, ${item.age} лет</span>
                         <span class="card-tag">${tagOccupation}</span>
-                        <span class="card-tag">${item.roomCount} комн.</span>
-                        ${item.hasDeposit ? '<span class="card-tag accent">Депозит</span>' : ''}
+                        <span class="card-tag">${item.roomCount === 'any' ? 'Любая комн.' : item.roomCount + ' комн.'}</span>
+                        ${item.hasDeposit ? `<span class="card-tag accent">${item.category === 'need_room' ? 'Готов к депозиту' : 'Депозит'}</span>` : ''}
+                        ${item.category === 'have_room' && item.totalResidents ? `<span class="card-tag">Жильцов: ${item.totalResidents}</span>` : ''}
+                        ${item.category === 'have_room' && item.roommateCount ? `<span class="card-tag">Ищут: ${item.roommateCount}</span>` : ''}
+                        ${item.category === 'need_room' && item.stayTerm ? `<span class="card-tag">Срок: ${getStayTermLabel(item.stayTerm)}</span>` : ''}
                         ${item.hasContract ? '<span class="card-tag">Договор</span>' : ''}
                         ${distStr}
                     </div>

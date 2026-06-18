@@ -113,6 +113,8 @@ function generateMockListings() {
             occupation: occupation,
             roomCount: roomCount,
             roommateCount: roommateCount,
+            totalResidents: 1 + (i % 4),
+            genderPref: i % 3 === 0 ? "male" : (i % 3 === 1 ? "female" : "any"),
             description: description,
             photos: photos,
             address: `ул. Достык ${10 + i}, ${cityNames[city]}`,
@@ -163,8 +165,9 @@ function generateMockListings() {
             photos: [],
             address: "",
             gisLink: "",
-            hasDeposit: false,
+            hasDeposit: i % 2 === 0,
             hasContract: false,
+            stayTerm: i % 4 === 0 ? "1" : (i % 4 === 1 ? "6" : (i % 4 === 2 ? "12" : "always")),
             createdAt: new Date(Date.now() - (i % 8) * 24 * 60 * 60 * 1000).toISOString(),
             boostExpiredAt: i % 8 === 0 ? new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString() : null,
             status: "active"
@@ -459,25 +462,22 @@ class HataDatabase {
             if (item.status === 'active') {
                 if (item.boostExpiredAt) {
                     const boostExpiry = new Date(item.boostExpiredAt).getTime();
-                    if (boostExpiry > now) {
-                        const boostEndPlusBonus = boostExpiry + (5 * 24 * 60 * 60 * 1000);
-                        if (now > boostEndPlusBonus) {
-                            item.status = 'archived';
-                            item.archivedAt = new Date().toISOString();
-                            item.boostExpiredAt = null;
-                            changed = true;
-                        }
-                        continue;
+                    const boostEndPlusBonus = boostExpiry + (5 * 24 * 60 * 60 * 1000);
+                    if (now > boostEndPlusBonus) {
+                        item.status = 'archived';
+                        item.archivedAt = new Date().toISOString();
+                        item.boostExpiredAt = null;
+                        changed = true;
                     }
-                }
-
-                const createdTime = new Date(item.createdAt).getTime();
-                const diffTime = now - createdTime;
-                const limit = 20 * 24 * 60 * 60 * 1000;
-                if (diffTime > limit) {
-                    item.status = 'archived';
-                    item.archivedAt = new Date().toISOString();
-                    changed = true;
+                } else {
+                    const createdTime = new Date(item.createdAt).getTime();
+                    const diffTime = now - createdTime;
+                    const limit = 20 * 24 * 60 * 60 * 1000;
+                    if (diffTime > limit) {
+                        item.status = 'archived';
+                        item.archivedAt = new Date().toISOString();
+                        changed = true;
+                    }
                 }
             } 
             else if (item.status === 'archived') {

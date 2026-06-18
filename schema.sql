@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS public.listings (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     boost_expired_at TIMESTAMP WITH TIME ZONE,
     archived_at TIMESTAMP WITH TIME ZONE,
+    owner_verified_student BOOLEAN DEFAULT FALSE,
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'archived')) NOT NULL
 );
 
@@ -59,4 +60,6 @@ CREATE POLICY "Allow owners or admins to delete/archive" ON public.listings
 ALTER TABLE public.listings ADD COLUMN IF NOT EXISTS age_min INTEGER;
 ALTER TABLE public.listings ADD COLUMN IF NOT EXISTS age_max INTEGER;
 ALTER TABLE public.listings ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.listings ADD COLUMN IF NOT EXISTS owner_verified_student BOOLEAN DEFAULT FALSE;
+
 

@@ -29,17 +29,37 @@ class HataDatabase {
 
     setupSupabaseAuthListener() {
         if (!this.supabaseClient) return;
-        this.supabaseClient.auth.onAuthStateChange((event, session) => {
+        this.supabaseClient.auth.onAuthStateChange(async (event, session) => {
             if (session && session.user) {
-                const config = HataConfig;
-                const user = {
-                    id: session.user.id,
-                    name: session.user.user_metadata.full_name || session.user.email,
-                    email: session.user.email,
-                    avatar: session.user.user_metadata.avatar_url || '',
-                    isAdmin: config.adminEmail ? session.user.email === config.adminEmail : session.user.email === 'admin@hata.kz'
-                };
-                localStorage.setItem('hata_current_user', JSON.stringify(user));
+                try {
+                    const response = await fetch('/api/users/me', {
+                        headers: { 'Authorization': `Bearer ${session.access_token}` }
+                    });
+                    if (response.ok) {
+                        const serverUser = await response.json();
+                        localStorage.setItem('hata_current_user', JSON.stringify(serverUser));
+                    } else {
+                        const config = HataConfig;
+                        const user = {
+                            id: session.user.id,
+                            name: session.user.user_metadata.full_name || session.user.email,
+                            email: session.user.email,
+                            avatar: session.user.user_metadata.avatar_url || '',
+                            isAdmin: config.adminEmail ? session.user.email === config.adminEmail : session.user.email === 'admin@hata.kz'
+                        };
+                        localStorage.setItem('hata_current_user', JSON.stringify(user));
+                    }
+                } catch (e) {
+                    const config = HataConfig;
+                    const user = {
+                        id: session.user.id,
+                        name: session.user.user_metadata.full_name || session.user.email,
+                        email: session.user.email,
+                        avatar: session.user.user_metadata.avatar_url || '',
+                        isAdmin: config.adminEmail ? session.user.email === config.adminEmail : session.user.email === 'admin@hata.kz'
+                    };
+                    localStorage.setItem('hata_current_user', JSON.stringify(user));
+                }
                 this.fetchUserListingsFromServer();
             } else {
                 localStorage.removeItem('hata_current_user');
@@ -289,6 +309,40 @@ class HataDatabase {
         const current = this.getAutoFillSuggestions(userId);
         const updated = { ...current, ...fields };
         localStorage.setItem(`hata_autofill_${userId}`, JSON.stringify(updated));
+    }
+
+    async verifyStudent(email, fileData) {
+        const token = this.getAccessToken();
+        if (!token) throw new Error("Требуется авторизация");
+
+        const response = await fetch('/api/users/verify', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ email, fileData })
+        });
+
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || "Ошибка верификации");
+        }
+
+        const data = await response.json();
+        
+        // Update user state
+        const user = this.getCurrentUser();
+        if (user) {
+            user.isVerifiedStudent = true;
+            localStorage.setItem('hata_current_user', JSON.stringify(user));
+            sessionStorage.setItem('hata_current_user', JSON.stringify(user));
+        }
+        
+        window.dispatchEvent(new Event('hata_auth_changed'));
+        await this.fetchListingsFromServer();
+        await this.fetchUserListingsFromServer();
+        return data;
     }
 }
 

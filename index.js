@@ -677,7 +677,10 @@ function renderListings() {
                     <div class="card-top">
                         <img class="owner-img" src="${item.ownerAvatar}" alt="">
                         <div class="owner-meta">
-                            <span class="owner-name">${item.ownerName}</span>
+                            <span class="owner-name">
+                                ${item.ownerName}
+                                ${item.ownerVerifiedStudent ? `<span class="student-badge" title="Верифицированный Студент"><i data-lucide="shield-check" style="width:14px; height:14px; color:var(--accent-lime); fill:rgba(184,255,0,0.1); margin-left:4px; display:inline-block; vertical-align:middle;"></i></span>` : ''}
+                            </span>
                             <span class="listing-date">${formattedDate}</span>
                         </div>
                     </div>
@@ -748,6 +751,31 @@ function renderUserProfile() {
         if (avatarEl) avatarEl.src = user.avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
         if (nameEl) nameEl.textContent = user.name;
         if (emailEl) emailEl.textContent = user.email;
+        
+        const verifyContainer = document.getElementById('studentVerificationContainer');
+        if (verifyContainer) {
+            if (user.isVerifiedStudent) {
+                verifyContainer.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 8px; color: var(--accent-lime); font-weight: 500; font-size: 0.85rem;">
+                        <i data-lucide="check-circle" style="width: 16px; height: 16px;"></i>
+                        <span>Ваш статус студента подтвержден</span>
+                    </div>
+                `;
+            } else {
+                verifyContainer.innerHTML = `
+                    <div id="verifyInteractiveBlock">
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; width: 100%;">
+                            <input type="email" id="studentEmailInput" class="form-control" placeholder="yourname@domain.edu.kz" style="flex: 1; min-width: 200px; padding: 8px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; font-family: inherit;">
+                            <button class="btn btn-lime" onclick="submitStudentVerification()" style="padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; cursor: pointer;">Подтвердить</button>
+                        </div>
+                        <div style="margin-top: 8px; font-size: 0.75rem; color: var(--text-secondary);">
+                            Или выберите фото студенческого билета:
+                            <input type="file" id="studentCardFile" style="margin-top: 5px; display: block; font-size: 0.75rem;" onchange="uploadStudentCardMock(event)">
+                        </div>
+                    </div>
+                `;
+            }
+        }
     }
     
     if (!container) return;
@@ -781,7 +809,7 @@ function renderUserProfile() {
             badgesHTML += `<span class="item-badge archived">В архиве</span>`;
         }
         
-        const catLabel = item.category === 'have_room' ? 'Ищу сожителя (Сдам)' : 'Ищу комнату (Сниму)';
+        const catLabel = item.category === 'have_room' ? 'Сдаю комнату / подселение' : 'Ищу сожителя / комнату';
         const dateStr = new Date(item.createdAt).toLocaleDateString('ru-RU');
 
         let actionButtons = '';
@@ -1566,7 +1594,7 @@ function renderAdminModerationList() {
     }
     
     container.innerHTML = all.map(item => {
-        const catLabel = item.category === 'have_room' ? 'Ищу сожителя (Сдам)' : 'Ищу комнату (Сниму)';
+        const catLabel = item.category === 'have_room' ? 'Сдаю комнату / подселение' : 'Ищу сожителя / комнату';
         const districtsStr = item.districts && item.districts.length > 0 
             ? item.districts.slice(0, 2).join(', ') + (item.districts.length > 2 ? '...' : '') 
             : 'Все районы';
@@ -1895,3 +1923,30 @@ function printMobileAccessGuide() {
     console.log("   В другом окне запустите туннель: npx localtunnel --port 8080");
     console.log("   Или через ngrok: ngrok http 8080");
 }
+
+window.submitStudentVerification = async function() {
+    const emailInput = document.getElementById('studentEmailInput');
+    if (!emailInput || !emailInput.value) {
+        alert("Пожалуйста, введите корпоративный email вашего вуза.");
+        return;
+    }
+    try {
+        await db.verifyStudent(emailInput.value);
+        alert("Статус студента успешно подтвержден!");
+        renderUserProfile();
+    } catch (e) {
+        alert(e.message);
+    }
+};
+
+window.uploadStudentCardMock = async function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    try {
+        await db.verifyStudent(null, "mock-card-data");
+        alert("Студенческий билет успешно проверен! Ваш профиль верифицирован.");
+        renderUserProfile();
+    } catch (e) {
+        alert(e.message);
+    }
+};

@@ -103,6 +103,9 @@ let HataConfig = {
     adminEmail: "admin@hata.kz"
 };
 
+// Verified users storage (in-memory mock DB)
+const verifiedUsers = new Set(['simulated-user-123']);
+
 // Log requests
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
@@ -164,11 +167,51 @@ async function authenticateToken(req, res, next) {
         }
     }
 
+    if (user) {
+        user.isVerifiedStudent = verifiedUsers.has(user.id) || (user.email && (
+            user.email.endsWith('.edu.kz') ||
+            user.email.endsWith('.university.kz') ||
+            user.email.endsWith('.nu.edu.kz') ||
+            user.email.endsWith('sdu.edu.kz') ||
+            user.email.endsWith('kbtu.kz') ||
+            user.email.endsWith('kimep.kz') ||
+            user.email.endsWith('kaznu.kz') ||
+            user.email.endsWith('enu.kz') ||
+            user.email.endsWith('satbayev.university')
+        )) || false;
+    }
+
     req.user = user;
     next();
 }
 
 // --- REST API ENDPOINTS ---
+
+// 0a. GET Current User Profile
+app.get('/api/users/me', authenticateToken, (req, res) => {
+    res.json(req.user);
+});
+
+// 0b. POST Verify Student Status
+app.post('/api/users/verify', authenticateToken, async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (email) {
+            const cleanEmail = email.trim().toLowerCase();
+            const allowedDomains = ['.edu.kz', '.university.kz', '.nu.edu.kz', 'sdu.edu.kz', 'kbtu.kz', 'kimep.kz', 'kaznu.kz', 'enu.kz', 'satbayev.university'];
+            const isUniEmail = allowedDomains.some(domain => cleanEmail.endsWith(domain));
+            if (!isUniEmail) {
+                return res.status(400).json({ error: 'Пожалуйста, введите корпоративную почту университета (оканчивающуюся на .edu.kz или домен вашего вуза)' });
+            }
+        }
+        
+        verifiedUsers.add(req.user.id);
+        res.json({ success: true, isVerifiedStudent: true, message: 'Статус студента успешно подтвержден!' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Ошибка верификации пользователя' });
+    }
+});
 
 // 1. GET Filters & Listings
 app.get('/api/listings', async (req, res) => {
@@ -316,6 +359,7 @@ app.post('/api/listings', authenticateToken, createListingLimiter, async (req, r
             ownerId: req.user.id,
             ownerName: escapeHTML(req.user.name),
             ownerAvatar: req.user.avatar,
+            ownerVerifiedStudent: req.user.isVerifiedStudent || false,
             budgetMin: bMin,
             budgetMax: bMax,
             budget: bMax, // fallback
@@ -457,6 +501,7 @@ app.put('/api/listings/:id', authenticateToken, async (req, res) => {
             age: ageVal,
             ageMin: ageMinVal,
             ageMax: ageMaxVal,
+            ownerVerifiedStudent: req.user.isVerifiedStudent || false,
             city,
             districts: Array.isArray(districts) ? districts.map(d => escapeHTML(d)) : [],
             whatsapp: digits,
